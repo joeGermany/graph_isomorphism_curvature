@@ -6,8 +6,12 @@ from scipy.linalg import expm
 import csv
 import networkx as nx
 from collections import defaultdict
+import mpmath as mp
+import sys
+import ast
+from sklearn.metrics.cluster import normalized_mutual_info_score
 
-def curvature(laplacianMatrix):
+def curvature(laplacianMatrix, fullVector=False):
     # Numpy solver
     eigenvalues = np.linalg.eigvalsh(laplacianMatrix)
     eigenvalues = np.real(eigenvalues)
@@ -17,6 +21,12 @@ def curvature(laplacianMatrix):
     # eigenvalues = la.eigvalsh(laplacianMatrix, lower=False)
     # eigenvalues[np.isclose(eigenvalues, 0, atol=1e-15)] = 0.0
     # eigenvalues = eigenvalues[eigenvalues > 1e-10]
+
+    # mpmath solver (insanely slow)
+    # mp.mp.dps = 15 # decimal places
+    # laplacianMatrix = mp.matrix(laplacianMatrix.tolist())
+    # eigenvalues, _ = mp.eigsy(laplacianMatrix)
+    # eigenvalues = [ev for ev in eigenvalues if ev > mp.mpf('1e-10')]
 
     N = len(eigenvalues)
 
@@ -57,9 +67,10 @@ def curvature(laplacianMatrix):
     dim = 2*slope
     print("dimension ", dim)
 
-    lambda_critical = x[best_n - 1]
+    lambda_critical = np.exp(x[best_n - 1])
 
-    Ti = np.arange(1 / np.max(lambda_fit), 1 / np.exp(lambda_critical), 0.001)
+    Ti = np.arange(1 / np.max(lambda_fit), 1 / lambda_critical, 0.001)
+    print(1 / np.max(lambda_fit), 1 / lambda_critical)
 
     # max degree of whole graph
     orderinexpan = np.max(np.diag(laplacianMatrix)).astype(int)
@@ -78,29 +89,77 @@ def curvature(laplacianMatrix):
     X_pinv = np.linalg.pinv(X)
 
     vr = np.zeros(laplacianMatrix.shape[0])
+    full_coeffs = np.zeros((laplacianMatrix.shape[0], orderinexpan))
 
     for j in range(laplacianMatrix.shape[0]):
         Y = K1diag[j, :]
+
         coeffs = X_pinv @ Y
 
-        vr[j] = coeffs[1]
+        if fullVector:
+            full_coeffs[j, :] = coeffs
+        else:
+            vr[j] = coeffs[1]
 
     resolution = 1e8
-    vr = np.trunc(vr * resolution) / resolution
+    groups = defaultdict(list)
 
-    print(np.unique(vr))
-    print(len(np.unique(vr)))
+    if fullVector:
+        full_coeffs = np.trunc(full_coeffs * resolution) / resolution
+        # full_coeffs = np.round(full_coeffs, decimals=9)
+        full_coeffs = full_coeffs[:, :5]
 
-    # To get equivalence classes based on u_1:
-    # groups = defaultdict(list)
-    # for i, value in enumerate(vr):
-    #     groups[value].append(i)
+        print(np.unique(full_coeffs, axis=0))
+        print(len(np.unique(full_coeffs, axis=0)))
 
-    # for key, values in groups.items():
-    #     print(values)
+        for i, row in enumerate(full_coeffs):
+            groups[tuple(row)].append(i)
 
-    return dim, vr
+    else:
+        vr = np.trunc(vr * resolution) / resolution
 
-G = nx.read_edgelist("ags/ag2-08__01", nodetype=int)
-L = nx.laplacian_matrix(G).toarray()
-curvature(L)
+        print(np.unique(vr))
+        print(len(np.unique(vr)))
+
+        for i, value in enumerate(vr):
+            groups[value].append(i)
+
+    equivalence_classes = list(groups.values())
+
+    return equivalence_classes
+
+def get_orbits_from_file(original_filename):
+    orbits_filename = original_filename + "_orbits.txt"
+    orbits = []
+
+    with open(orbits_filename) as f:
+        num_of_orbits = int(next(f).split()[0])
+        for i in range(num_of_orbits):
+            orbits.append(ast.literal_eval(next(f)))
+    
+    return orbits
+
+# sorry for the weird function name
+def turn_membership_array_into_clustering_array(array, num_of_nodes, num_of_classes):
+    clustering = np.zeros(num_of_nodes)
+
+    for i in range(len(array)):
+        clustering[array[i]] = i
+
+    return clustering
+
+filename = "ags/ag2-08__00"
+with open(filename) as f:
+    num_of_nodes = int(next(f).split()[0])
+    G = nx.parse_edgelist(f, nodetype=int)
+
+G.add_nodes_from(range(num_of_nodes))
+L = nx.laplacian_matrix(G, nodelist=range(num_of_nodes)).toarray()
+
+orbits = get_orbits_from_file(filename)
+orbits_clustering = turn_membership_array_into_clustering_array(orbits, num_of_nodes, len(orbits))
+
+equivalence_classes = curvature(L, fullVector=False)
+equivalence_classes_clustering = turn_membership_array_into_clustering_array(equivalence_classes, num_of_nodes, len(equivalence_classes))
+
+print(normalized_mutual_info_score(orbits_clustering, equivalence_classes_clustering))
