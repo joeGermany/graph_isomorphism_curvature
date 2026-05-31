@@ -105,9 +105,15 @@ def curvature(laplacianMatrix, fullVector=False):
     groups = defaultdict(list)
 
     if fullVector:
-        full_coeffs = np.trunc(full_coeffs * resolution) / resolution
+        full_coeffs = full_coeffs[:, 1:6]
+
+        full_coeffs[:, 0] = np.trunc(full_coeffs[:, 0] * resolution) / resolution
+        full_coeffs[:, 1] = np.trunc(full_coeffs[:, 1] * 1e6) / 1e6
+        full_coeffs[:, 2] = np.trunc(full_coeffs[:, 2] * 1e5) / 1e5
+        full_coeffs[:, 3] = np.trunc(full_coeffs[:, 3] * 1e5) / 1e5
+        full_coeffs[:, 4] = np.trunc(full_coeffs[:, 4] * 1e4) / 1e4
+
         # full_coeffs = np.round(full_coeffs, decimals=9)
-        full_coeffs = full_coeffs[:, :5]
 
         print(np.unique(full_coeffs, axis=0))
         print(len(np.unique(full_coeffs, axis=0)))
@@ -148,7 +154,7 @@ def turn_membership_array_into_clustering_array(array, num_of_nodes, num_of_clas
 
     return clustering
 
-filename = "ags/ag2-08__00"
+filename = "ags/ag2-08__01"
 with open(filename) as f:
     num_of_nodes = int(next(f).split()[0])
     G = nx.parse_edgelist(f, nodetype=int)
