@@ -1,5 +1,10 @@
 curvatureModule-old.py
 curvatureModule-less_old.py
+curvatureModule_gpu.py
+trials.ipynb
+curvatureModule-fromJune8_2026.py
+
+ags/mohammad_graph.txt
 
 .DS_Store
 **/.DS_Store

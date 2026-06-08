@@ -10,11 +10,13 @@ import mpmath as mp
 import sys
 import ast
 from sklearn.metrics.cluster import normalized_mutual_info_score
+import time
 
-def curvature(laplacianMatrix, fullVector=False):
+def curvature(G, laplacianMatrix, orderinexpan, start_coefficient_for_curvature=1, end_coefficient_for_curvature=1, rounding_array=[1e6], bfs_signatures=False, max_depth_of_BFS=0):
     # Numpy solver
-    eigenvalues = np.linalg.eigvalsh(laplacianMatrix)
-    eigenvalues = np.real(eigenvalues)
+    eigenvals, eigenvecs = np.linalg.eigh(laplacianMatrix)
+    eigensolver_time = time.perf_counter()
+    eigenvalues = np.real(eigenvals)
     eigenvalues = eigenvalues[eigenvalues > 1e-10]
 
     # Scipy solver
@@ -43,10 +45,13 @@ def curvature(laplacianMatrix, fullVector=False):
     x = np.log(lambda_fit[mask])
     y = np.log(N_fit[mask])
 
-    plt.scatter(x, y, s=10)
-    plt.xlabel("log(lambda)")
-    plt.ylabel("log(N_fit)")
-    plt.show()
+    # plt.scatter(lambda_fit[mask], N_fit[mask])
+
+    # Plot log-log graph
+    # plt.scatter(x, y, s=10)
+    # plt.xlabel("log(lambda)")
+    # plt.ylabel("log(N_fit)")
+    # plt.show()
 
     lowpoints = 4
     nbpoints = len(x)
@@ -69,11 +74,8 @@ def curvature(laplacianMatrix, fullVector=False):
 
     lambda_critical = np.exp(x[best_n - 1])
 
-    Ti = np.arange(1 / np.max(lambda_fit), 1 / lambda_critical, 0.001)
+    Ti = np.arange(1 / np.max(lambda_fit), 1 / np.min(lambda_fit), 0.001)
     print(1 / np.max(lambda_fit), 1 / lambda_critical)
-
-    # max degree of whole graph
-    orderinexpan = np.max(np.diag(laplacianMatrix)).astype(int)
 
     X = np.zeros((len(Ti), orderinexpan))
 
@@ -83,8 +85,10 @@ def curvature(laplacianMatrix, fullVector=False):
     K1diag = np.zeros((laplacianMatrix.shape[0], len(Ti)))
 
     for i in range(len(Ti)):
-        Ker1 = expm(- laplacianMatrix * Ti[i])
-        K1diag[:, i] = np.diag(Ker1)
+        # Ker1 = expm(- laplacianMatrix * Ti[i])
+        # K1diag[:, i] = np.diag(Ker1)
+        exp_lambda = np.exp( - eigenvals * Ti[i])
+        K1diag[:, i] = np.sum((eigenvecs**2) * exp_lambda, axis=1)
 
     X_pinv = np.linalg.pinv(X)
 
@@ -93,28 +97,18 @@ def curvature(laplacianMatrix, fullVector=False):
 
     for j in range(laplacianMatrix.shape[0]):
         Y = K1diag[j, :]
-
         coeffs = X_pinv @ Y
+        full_coeffs[j, :] = coeffs
 
-        if fullVector:
-            full_coeffs[j, :] = coeffs
-        else:
-            vr[j] = coeffs[1]
+    full_coeffs = full_coeffs[:, start_coefficient_for_curvature:end_coefficient_for_curvature]
+    for i in range(end_coefficient_for_curvature - start_coefficient_for_curvature):
+        full_coeffs[:, i] = np.trunc(full_coeffs[:, i] * rounding_array[i]) / rounding_array[i]
+    # full_coeffs = np.round(full_coeffs, decimals=9)
 
-    resolution = 1e8
+    print(full_coeffs)
+
     groups = defaultdict(list)
-
-    if fullVector:
-        full_coeffs = full_coeffs[:, 1:6]
-
-        full_coeffs[:, 0] = np.trunc(full_coeffs[:, 0] * resolution) / resolution
-        full_coeffs[:, 1] = np.trunc(full_coeffs[:, 1] * 1e6) / 1e6
-        full_coeffs[:, 2] = np.trunc(full_coeffs[:, 2] * 1e5) / 1e5
-        full_coeffs[:, 3] = np.trunc(full_coeffs[:, 3] * 1e5) / 1e5
-        full_coeffs[:, 4] = np.trunc(full_coeffs[:, 4] * 1e4) / 1e4
-
-        # full_coeffs = np.round(full_coeffs, decimals=9)
-
+    if bfs_signatures == False:
         print(np.unique(full_coeffs, axis=0))
         print(len(np.unique(full_coeffs, axis=0)))
 
@@ -122,17 +116,27 @@ def curvature(laplacianMatrix, fullVector=False):
             groups[tuple(row)].append(i)
 
     else:
-        vr = np.trunc(vr * resolution) / resolution
+        signatures = []
 
-        print(np.unique(vr))
-        print(len(np.unique(vr)))
+        for root in range(len(full_coeffs)):
+            dist = nx.single_source_shortest_path_length(G, root, cutoff=max_depth_of_BFS)
+            sig = []
 
-        for i, value in enumerate(vr):
-            groups[value].append(i)
+            for d in range(max_depth_of_BFS + 1):
+                layer_nodes = [node for node, distance in dist.items() if distance == d]
+                layer_coeffs = [tuple(full_coeffs[node]) for node in layer_nodes]
+                layer_coeffs.sort()
+                sig.append(layer_coeffs)
 
+            signatures.append(sig)
+        
+        for i, sig in enumerate(signatures):
+            key = tuple(tuple(layer) for layer in sig)
+            groups[key].append(i)
+            
     equivalence_classes = list(groups.values())
 
-    return equivalence_classes
+    return equivalence_classes, eigensolver_time
 
 def get_orbits_from_file(original_filename):
     orbits_filename = original_filename + "_orbits.txt"
@@ -154,18 +158,39 @@ def turn_membership_array_into_clustering_array(array, num_of_nodes, num_of_clas
 
     return clustering
 
-filename = "ags/ag2-08__01"
-with open(filename) as f:
-    num_of_nodes = int(next(f).split()[0])
-    G = nx.parse_edgelist(f, nodetype=int)
+if __name__ == "__main__":
+    start_time = time.perf_counter()
 
-G.add_nodes_from(range(num_of_nodes))
-L = nx.laplacian_matrix(G, nodelist=range(num_of_nodes)).toarray()
+    filename = "ags/ag2-08__02"
+    with open(filename) as f:
+        num_of_nodes = int(next(f).split()[0])
+        G = nx.parse_edgelist(f, nodetype=int)
 
-orbits = get_orbits_from_file(filename)
-orbits_clustering = turn_membership_array_into_clustering_array(orbits, num_of_nodes, len(orbits))
+    G.add_nodes_from(range(num_of_nodes))
+    L = nx.laplacian_matrix(G, nodelist=range(num_of_nodes)).toarray()
 
-equivalence_classes = curvature(L, fullVector=False)
-equivalence_classes_clustering = turn_membership_array_into_clustering_array(equivalence_classes, num_of_nodes, len(equivalence_classes))
+    orbits = get_orbits_from_file(filename)
+    orbits_clustering = turn_membership_array_into_clustering_array(orbits, num_of_nodes, len(orbits))
 
-print(normalized_mutual_info_score(orbits_clustering, equivalence_classes_clustering))
+    orderinexpan = 6 #np.max(np.diag(laplacianMatrix)).astype(int)
+    start_coefficient_for_curvature = 1
+    end_coefficient_for_curvature = 6
+    rounding_array = [1e6] * (end_coefficient_for_curvature - start_coefficient_for_curvature)
+    bfs_signatures = True
+    max_depth_of_BFS = 5
+    equivalence_classes, eigensolver_time = curvature(G, L, orderinexpan, 
+        start_coefficient_for_curvature=start_coefficient_for_curvature, 
+        end_coefficient_for_curvature=end_coefficient_for_curvature, 
+        rounding_array=rounding_array, 
+        bfs_signatures=bfs_signatures, 
+        max_depth_of_BFS=max_depth_of_BFS
+    )
+    equivalence_classes_clustering = turn_membership_array_into_clustering_array(equivalence_classes, num_of_nodes, len(equivalence_classes))
+
+    # put [:136] if you only want to compare the original vertices for the ag's
+    print(normalized_mutual_info_score(orbits_clustering[:136], equivalence_classes_clustering[:136]))
+    print(len(np.unique(equivalence_classes_clustering[:136])))
+
+    end_time = time.perf_counter()
+    print(f"Eigensolver Execution time: {(eigensolver_time - start_time):.6f} seconds")
+    print(f"Total Execution time: {(end_time - start_time):.6f} seconds")
