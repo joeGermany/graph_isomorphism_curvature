@@ -30,7 +30,6 @@ def turn_membership_array_into_clustering_array(array, num_of_nodes, num_of_clas
     return clustering
 
 def compute_orbits(G):
-
     nodes = list(G.nodes())
 
     mapping = {v: i for i, v in enumerate(nodes)}
@@ -55,6 +54,20 @@ def compute_orbits(G):
 
     return list(orbit_dict.values())
 
+def are_cospectral_vertices(G, u, v, tol=1e-11):
+    Gu = G.copy()
+    Gu.remove_node(u)
+
+    Gv = G.copy()
+    Gv.remove_node(v)
+
+    Au = nx.to_numpy_array(Gu)
+    Av = nx.to_numpy_array(Gv)
+
+    eig_u = np.sort(np.linalg.eigvalsh(Au))
+    eig_v = np.sort(np.linalg.eigvalsh(Av))
+
+    return np.allclose(eig_u, eig_v, atol=tol)
 
 if __name__ == "__main__":
     start_time = time.perf_counter()
@@ -75,6 +88,8 @@ if __name__ == "__main__":
         directed=False,
         adjacency_dict=adjacency,
     )
+
+    # print(are_cospectral_vertices(G, 1, 4))
 
     orbits = compute_orbits(G)
     orbits_clustering = turn_membership_array_into_clustering_array(orbits, num_of_nodes, len(orbits))
