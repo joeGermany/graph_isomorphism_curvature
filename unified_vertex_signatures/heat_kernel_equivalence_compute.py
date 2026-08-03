@@ -70,7 +70,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         step = self.time_step
         start_time = 1 / lambda_max
-        end_time = 1 / lambda_min
+        end_time = 10 * (1 / lambda_min)
         times = np.arange(start_time, end_time, step)
 
         return times

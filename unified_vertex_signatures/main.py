@@ -180,7 +180,7 @@ def read_dimacs_or_simple_graph(filename):
     return graph
 
 def main():
-    graph_file = Path("../Graphs/mz-2")
+    graph_file = Path("../Graphs/sts-13")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set the parameters fit_order/fit_start/fit_end
@@ -206,15 +206,15 @@ def main():
     subdivision_k = 0
 
     heat_settings = {
-        "signature_mode": "diagonal",
-        "comparison_mode": "weird_norm",
+        "signature_mode": "full_matrix",
+        "comparison_mode": "fixed_resolution",
         "include_edges": False,
         "bfs_depth": 0,
-        "time_step": 0.1,
+        "time_step": 0.001,
         "fit_order": 6,
         "fit_start": 1,
         "fit_end": 6,
-        "resolutions": (1e8, 1e6, 1e6, 1e5, 1e4),
+        "resolutions": [1e8],
         "weird_norm_threshold": 1e-5,
         "zero_tolerance": 1e-12,
     }
