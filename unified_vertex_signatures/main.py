@@ -203,6 +203,9 @@ def main():
     #     Compare signatures using `weird_norm_threshold`.
     #     The `resolutions` values are not used.
 
+    # end_time_multiplier controls the upper end of the sampled time interval:
+    #   1  -> end_time = 1 / lambda_min
+
     subdivision_k = 0
 
     heat_settings = {
@@ -211,6 +214,7 @@ def main():
         "include_edges": False,
         "bfs_depth": 0,
         "time_step": 0.001,
+        "end_time_multiplier": 10,
         "fit_order": 6,
         "fit_start": 1,
         "fit_end": 6,

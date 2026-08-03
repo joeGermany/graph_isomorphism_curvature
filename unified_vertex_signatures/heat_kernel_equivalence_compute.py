@@ -18,6 +18,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         include_edges=False,
         bfs_depth=6,
         time_step=0.01,
+        end_time_multiplier=1.0,
         fit_order=6,
         fit_start=1,
         fit_end=6,
@@ -32,6 +33,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         self.include_edges = include_edges
         self.bfs_depth = bfs_depth
         self.time_step = time_step
+        self.end_time_multiplier = float(end_time_multiplier)
         self.fit_order = fit_order
         self.fit_start = fit_start
         self.fit_end = fit_end
@@ -70,7 +72,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         step = self.time_step
         start_time = 1 / lambda_max
-        end_time = 10 * (1 / lambda_min)
+        end_time = self.end_time_multiplier / lambda_min
         times = np.arange(start_time, end_time, step)
 
         return times
