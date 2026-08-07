@@ -4,47 +4,44 @@ from itertools import combinations
 import networkx as nx
 import numpy as np
 from scipy.stats import linregress
-
+from tqdm.auto import tqdm
 from vertex_equivalence_interface import VertexEquivalenceInterface, EquivalenceClasses
 
 
 class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
-    SIG_MODES = {"coefficients", "diagonal", "full_matrix"}
-    COMPARISON_MODES = {"fixed_resolution", "weird_norm"}
 
     def __init__(
-        self,
-        signature_mode="full_matrix",
-        include_edges=False,
-        bfs_depth=6,
-        time_step=0.01,
-        end_time_multiplier=1.0,
-        fit_order=6,
-        fit_start=1,
-        fit_end=6,
-        resolutions=(1e8,1e6,1e6,1e5,1e4),
-        weird_norm_threshold=1e-5,
-        zero_tolerance=1e-12,
-        comparison_mode="fixed_resolution",
+            self,
+            node_settings,
+            edge_settings=None,
+            comparison_mode="fixed_resolution",
+            include_edges=False,
+            bfs_depth=6,
+            weird_norm_threshold=1e-5,
+            zero_tolerance=1e-12,
     ):
+        self.node_settings = dict(node_settings)
+        self.node_settings["resolutions"] = np.atleast_1d(
+            np.asarray(self.node_settings["resolutions"], dtype=np.float64))
 
-        resolutions = np.asarray(resolutions, dtype=np.float64)
-        self.signature_mode = signature_mode
+        self.edge_settings = dict(edge_settings) if edge_settings is not None else None
+
+        if self.edge_settings is not None:
+            self.edge_settings["resolutions"] = np.atleast_1d(
+                np.asarray(self.edge_settings["resolutions"], dtype=np.float64))
+
+        self.comparison_mode = comparison_mode
         self.include_edges = include_edges
         self.bfs_depth = bfs_depth
-        self.time_step = time_step
-        self.end_time_multiplier = float(end_time_multiplier)
-        self.fit_order = fit_order
-        self.fit_start = fit_start
-        self.fit_end = fit_end
-        self.resolutions = resolutions
         self.weird_norm_threshold = float(weird_norm_threshold)
-        self.comparison_mode = comparison_mode
         self.zero_tolerance = float(zero_tolerance)
+
+    def _domain_settings(self, domain):
+        return self.node_settings if domain == "node" else self.edge_settings
 
     @staticmethod
     def _edge_key(u, v):
-        return frozenset((u, v))
+        return (min(u, v), max(u, v))
 
     def _positive_eigenvalues(self, eigenvalues):
         values = np.real(eigenvalues)
@@ -64,22 +61,20 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             edge_items = [self._edge_key(u, v) for u, v in edges]
             return np.asarray(incidence.T @ incidence, dtype=np.float64), edge_items, edges
 
-    def _time_values(self, eigenvalues):
+    def _time_values(self, eigenvalues, domain):
+        settings = self._domain_settings(domain)
         positive_eigenvalues = self._positive_eigenvalues(eigenvalues)
 
         lambda_min = positive_eigenvalues[0]
         lambda_max = positive_eigenvalues[-1]
 
-        step = self.time_step
         start_time = 1 / lambda_max
-        end_time = self.end_time_multiplier / lambda_min
-        times = np.arange(start_time, end_time, step)
+        end_time = settings["end_time_multiplier"] / lambda_min
 
-        return times
+        return np.arange(start_time, end_time, settings["time_step"])
 
     def _spectral_data(self, G, domain):
         laplacian, items, edges = self._laplacian_data(G, domain)
-
         eigenvalues, eigenvectors = np.linalg.eigh(laplacian)
 
         return {
@@ -87,7 +82,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             "edges": edges,
             "eigenvalues": eigenvalues,
             "eigenvectors": eigenvectors,
-            "times": self._time_values(eigenvalues),
+            "times": self._time_values(eigenvalues, domain),
         }
 
     def _dimension(self, eigenvalues):
@@ -113,7 +108,9 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         return (exponentials @ (eigenvectors ** 2).T).T
 
-    def _coefficient_values(self, spectral_data):
+    def _coefficient_values(self, spectral_data, domain):
+        settings = self._domain_settings(domain)
+
         diagonal = self._heat_diagonal_values(spectral_data)
         eigenvalues = spectral_data["eigenvalues"]
         times = spectral_data["times"]
@@ -121,12 +118,12 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         fitting_matrix = np.column_stack([
             (times ** coefficient_index) / ((4 * np.pi * times) ** (dimension / 2))
-            for coefficient_index in range(self.fit_order)
+            for coefficient_index in range(settings["fit_order"])
         ])
 
         coefficients = diagonal @ np.linalg.pinv(fitting_matrix).T
 
-        return coefficients[:,self.fit_start:self.fit_end]
+        return coefficients[:, settings["fit_start"]:settings["fit_end"]]
 
     @staticmethod
     def _edge_graph(edges):
@@ -167,7 +164,9 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             edge_graph = self._edge_graph(edges)
             distances = [nx.single_source_shortest_path_length(edge_graph,root) for root in range(size)]
 
-        for time_index,time_value in enumerate(times):
+        for time_index, time_value in tqdm(enumerate(times), total=len(times),
+                                           desc=f"{domain.capitalize()} heat signatures", unit="time",
+                                           dynamic_ncols=True):
             heat_matrix = (eigenvectors * np.exp(-eigenvalues * time_value)) @ eigenvectors.T
 
             if domain == "edge":
@@ -176,47 +175,50 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             for root in range(size):
                 ordered_values = sorted(
                     (
-                        distances[root].get(target,size + 1),
-                        heat_matrix[root,target],
+                        distances[root].get(target, size + 1),
+                        heat_matrix[root, target],
                     )
                     for target in range(size)
                 )
 
-                values[root,time_index] = [entry[-1] for entry in ordered_values]
+                values[root, time_index] = [entry[-1] for entry in ordered_values]
 
         return values.reshape(size,-1)
 
+
     def _compute_signatures(self, G, domain):
-        spectral_data = self._spectral_data(G,domain)
+        spectral_data = self._spectral_data(G, domain)
+        settings = self._domain_settings(domain)
+        signature_mode = settings["signature_mode"]
 
-        if spectral_data is None:
-            return {}
-
-        if self.signature_mode == "coefficients":
-            values = self._coefficient_values(spectral_data)
-        elif self.signature_mode == "diagonal":
+        if signature_mode == "coefficients":
+            values = self._coefficient_values(spectral_data, domain)
+        elif signature_mode == "diagonal":
             values = self._heat_diagonal_values(spectral_data)
         else:
-            values = self._full_matrix_values(G,domain,spectral_data)
+            values = self._full_matrix_values(G, domain, spectral_data)
 
-        return {item:tuple(values[index].ravel()) for index,item in enumerate(spectral_data["items"])}
+        return {item: tuple(values[index].ravel()) for index, item in enumerate(spectral_data["items"])}
 
-    def _truncate_signatures(self, signatures):
+    def _truncate_signatures(self, signatures, domain):
+        settings = self._domain_settings(domain)
+        signature_mode = settings["signature_mode"]
+        resolutions = settings["resolutions"]
         truncated = {}
 
-        if self.signature_mode == "coefficients":
-            number_of_coefficients = self.fit_end - self.fit_start
+        if signature_mode == "coefficients":
+            number_of_coefficients = settings["fit_end"] - settings["fit_start"]
 
-            if len(self.resolutions) < number_of_coefficients:
-                raise ValueError("resolutions must contain at least fit_end - fit_start values.")
+            if len(resolutions) < number_of_coefficients:
+                raise ValueError("Not enough resolution values for the selected coefficients.")
 
-            resolutions = self.resolutions[:number_of_coefficients]
+            resolutions = resolutions[:number_of_coefficients]
         else:
-            resolutions = self.resolutions[0]
+            resolutions = resolutions[0]
 
-        for item,signature in signatures.items():
-            values = np.asarray(signature,dtype=np.float64)
-            truncated[item] = tuple(np.trunc(values * resolutions) / resolutions)
+        for item, signature in signatures.items():
+            values = np.asarray(signature, dtype=np.float64)
+            truncated[item] = tuple(int(value) for value in np.trunc(values * resolutions))
 
         return truncated
 
@@ -272,17 +274,19 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         return root_signatures
 
     def _compute_root_signatures(self, G, truncate=False):
-        node_signatures = self._compute_signatures(G,"node")
-        edge_signatures = self._compute_signatures(G,"edge") if self.include_edges else {}
+        node_signatures = self._compute_signatures(G, "node")
+        edge_signatures = self._compute_signatures(G, "edge") if self.include_edges else {}
 
         if truncate:
-            node_signatures = self._truncate_signatures(node_signatures)
-            edge_signatures = self._truncate_signatures(edge_signatures)
+            node_signatures = self._truncate_signatures(node_signatures, "node")
+
+            if edge_signatures:
+                edge_signatures = self._truncate_signatures(edge_signatures, "edge")
 
         if self.bfs_depth is None:
-            return self._signatures_without_bfs(G,node_signatures,edge_signatures)
+            return self._signatures_without_bfs(G, node_signatures, edge_signatures)
 
-        return self._signatures_with_bfs(G,node_signatures,edge_signatures)
+        return self._signatures_with_bfs(G, node_signatures, edge_signatures)
 
     def _weird_norm(self, U, V):
         U = np.asarray(U,dtype=np.float64).copy()
@@ -354,13 +358,18 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         similarity_graph = nx.Graph()
         similarity_graph.add_nodes_from(G.nodes())
 
-        for vertex_v, vertex_u in combinations(G.nodes(), 2):
+        number_of_vertices = G.number_of_nodes()
+        number_of_pairs = number_of_vertices * (number_of_vertices - 1) // 2
+        vertex_pairs = tqdm(combinations(G.nodes(), 2), total=number_of_pairs, desc="Weird-norm comparisons",
+                            unit="pair", dynamic_ncols=True)
+
+        for vertex_v, vertex_u in vertex_pairs:
             if self._vertex_signatures_match(root_signatures[vertex_v], root_signatures[vertex_u]):
                 similarity_graph.add_edge(vertex_v, vertex_u)
 
         equivalence_classes = defaultdict(list)
 
         for component_index, component in enumerate(nx.connected_components(similarity_graph)):
-            equivalence_classes[("threshold_component", component_index)] = sorted(component)
+            equivalence_classes[component_index] = sorted(component)
 
         return equivalence_classes

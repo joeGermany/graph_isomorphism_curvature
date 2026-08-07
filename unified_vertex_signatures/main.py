@@ -1,9 +1,9 @@
 from collections import Counter,defaultdict
 from pathlib import Path
-
 import networkx as nx
 import pynauty
 from sklearn.metrics import normalized_mutual_info_score
+from k_wl.kwl import run_kwl
 
 from heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
 def get_orbits_with_pynauty(G):
@@ -26,7 +26,6 @@ def get_orbits_with_pynauty(G):
     orbits.sort(key=lambda cls:cls[0] if cls else -1)
 
     return orbits
-
 
 def get_true_orbits_restricted(G,original_n):
 
@@ -54,7 +53,7 @@ def compute_overall_same_orbit_probability(G,G_classes,original_n):
     )
 
     if not eligible_signatures:
-        return 0.0,{}
+        return 0.0
 
     true_orbits = get_true_orbits_restricted(G,original_n)
 
@@ -179,6 +178,7 @@ def read_dimacs_or_simple_graph(filename):
 
     return graph
 
+
 def main():
     graph_file = Path("../Graphs/sts-13")
 
@@ -208,26 +208,40 @@ def main():
 
     subdivision_k = 0
 
-    heat_settings = {
+    node_settings = {
         "signature_mode": "full_matrix",
-        "comparison_mode": "fixed_resolution",
-        "include_edges": False,
-        "bfs_depth": 0,
-        "time_step": 0.001,
-        "end_time_multiplier": 10,
+        "time_step": 0.1,
+        "end_time_multiplier": 5,
         "fit_order": 6,
         "fit_start": 1,
         "fit_end": 6,
-        "resolutions": [1e8],
-        "weird_norm_threshold": 1e-5,
-        "zero_tolerance": 1e-12,
+        "resolutions": [1e10],
     }
+
+    edge_settings = {
+        "signature_mode": "full_matrix",
+        "time_step": 0.1,
+        "end_time_multiplier": 5,
+        "fit_order": 6,
+        "fit_start": 1,
+        "fit_end": 4,
+        "resolutions": [1e10],
+    }
+
+    equivalence_computer = HeatKernelEquivalenceComputer(
+        node_settings=node_settings,
+        edge_settings=edge_settings,
+        comparison_mode="fixed_resolution",
+        include_edges=True,
+        bfs_depth=100,
+        weird_norm_threshold=1e-5,
+        zero_tolerance=1e-12,
+    )
 
     original_graph = read_dimacs_or_simple_graph(graph_file)
     original_n = original_graph.number_of_nodes()
     graph = subdivide_every_edge(original_graph,subdivision_k)
 
-    equivalence_computer = HeatKernelEquivalenceComputer(**heat_settings)
     all_classes = equivalence_computer.compute_equivalence_classes(graph)
 
     classes = restrict_to_original(all_classes,original_n)
@@ -239,9 +253,38 @@ def main():
     nmi = normalized_mutual_info_score(orbit_labels,class_labels)
     probability = compute_overall_same_orbit_probability(graph,classes,original_n)
 
-    print(f"NMI: {nmi:.6f}")
-    print(f"Same-orbit probability: {probability:.6f}")
+    print(f"NMI: {nmi:.4f}")
+    print(f"Same-orbit probability: {probability:.4f}")
 
+    # k-WL uses an external executable named `run_wl`.
+    # Before running the experiment, compile it once with:
+
+    #   cd k-wl
+
+    # Linux / Windows with g++:
+    #   g++ -std=c++17 -O3 main.cpp weisfeiler_lehman.cpp -o run_wl
+    #
+    # macOS:
+    #   clang++ -std=c++17 -O3 main.cpp weisfeiler_lehman.cpp -o run_wl
+
+    k_wl_parameter = 2
+
+    unit_kwl_classes = run_kwl(original_graph, k_wl_parameter, output_dir="kwl_output/unit_coloring")
+    heat_kwl_classes = run_kwl(original_graph, k_wl_parameter, initial_partition=classes, output_dir="kwl_output/heat_colored")
+
+    unit_kwl_labels = partition_to_labels(unit_kwl_classes, original_n)
+    heat_kwl_labels = partition_to_labels(heat_kwl_classes, original_n)
+
+    unit_kwl_nmi = normalized_mutual_info_score(orbit_labels, unit_kwl_labels)
+    heat_kwl_nmi = normalized_mutual_info_score(orbit_labels, heat_kwl_labels)
+
+    true_orbit_set = {tuple(sorted(orbit)) for orbit in true_orbits}
+
+    unit_matches = sum(tuple(sorted(cls)) in true_orbit_set for cls in unit_kwl_classes)
+    heat_matches = sum(tuple(sorted(cls)) in true_orbit_set for cls in heat_kwl_classes)
+
+    print(f"2-WL unit_coloring: NMI = {unit_kwl_nmi:.4f}, classes = {len(unit_kwl_classes)}, matching classes = {unit_matches}")
+    print(f"2-WL heat_colored: NMI = {heat_kwl_nmi:.4f}, classes = {len(heat_kwl_classes)}, matching classes = {heat_matches}")
 
 if __name__ == "__main__":
     main()
