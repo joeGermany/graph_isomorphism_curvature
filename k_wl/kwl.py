@@ -3,7 +3,7 @@ import ast
 import subprocess
 from pathlib import Path
 
-K_WL_DIR=Path("k-wl")
+K_WL_DIR=Path(__file__).resolve().parent.parent/"k_wl"
 
 if (K_WL_DIR/"run_wl").exists():
     RUN_WL_EXE=K_WL_DIR/"run_wl"

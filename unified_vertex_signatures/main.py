@@ -3,6 +3,9 @@ from pathlib import Path
 import networkx as nx
 import pynauty
 from sklearn.metrics import normalized_mutual_info_score
+import sys
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 from k_wl.kwl import run_kwl
 
 from heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
