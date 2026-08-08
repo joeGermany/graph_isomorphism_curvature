@@ -273,11 +273,11 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         return root_signatures
 
-    def _compute_root_signatures(self, G, truncate=False):
+    def compute_vertex_signatures(self,G):
         node_signatures = self._compute_signatures(G, "node")
         edge_signatures = self._compute_signatures(G, "edge") if self.include_edges else {}
 
-        if truncate:
+        if self.comparison_mode == "fixed_resolution":
             node_signatures = self._truncate_signatures(node_signatures, "node")
 
             if edge_signatures:
@@ -305,7 +305,6 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         return np.linalg.norm(differences)
 
     def _vertex_signatures_match(self, vertex_signature_v, vertex_signature_u):
-
 
         def collections_match(signatures_v, signatures_u):
             if len(signatures_v) != len(signatures_u):
@@ -340,11 +339,9 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         return True
 
-    def compute_equivalence_classes(self, G: nx.Graph) -> EquivalenceClasses:
-        use_fixed_resolution = self.comparison_mode == "fixed_resolution"
-        root_signatures = self._compute_root_signatures(G, truncate=use_fixed_resolution)
+    def compute_equivalence_classes(self, root_signatures) -> EquivalenceClasses:
 
-        if use_fixed_resolution:
+        if self.comparison_mode == "fixed_resolution":
             equivalence_classes = defaultdict(list)
 
             for vertex, signature in root_signatures.items():
@@ -352,16 +349,13 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
             return equivalence_classes
 
-
-        # Using weird norm for grouping
-
         similarity_graph = nx.Graph()
-        similarity_graph.add_nodes_from(G.nodes())
+        similarity_graph.add_nodes_from(root_signatures.keys())
 
-        number_of_vertices = G.number_of_nodes()
+        number_of_vertices = len(root_signatures)
         number_of_pairs = number_of_vertices * (number_of_vertices - 1) // 2
-        vertex_pairs = tqdm(combinations(G.nodes(), 2), total=number_of_pairs, desc="Weird-norm comparisons",
-                            unit="pair", dynamic_ncols=True)
+        vertex_pairs = tqdm(combinations(root_signatures.keys(), 2), total=number_of_pairs,
+                            desc="Weird-norm comparisons", unit="pair", dynamic_ncols=True)
 
         for vertex_v, vertex_u in vertex_pairs:
             if self._vertex_signatures_match(root_signatures[vertex_v], root_signatures[vertex_u]):

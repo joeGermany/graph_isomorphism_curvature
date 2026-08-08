@@ -245,7 +245,8 @@ def main():
     original_n = original_graph.number_of_nodes()
     graph = subdivide_every_edge(original_graph,subdivision_k)
 
-    all_classes = equivalence_computer.compute_equivalence_classes(graph)
+    signatures = equivalence_computer.compute_vertex_signatures(graph)
+    all_classes = equivalence_computer.compute_equivalence_classes(signatures)
 
     classes = restrict_to_original(all_classes,original_n)
     true_orbits = get_true_orbits_restricted(graph,original_n)
