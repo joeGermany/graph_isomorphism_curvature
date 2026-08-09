@@ -344,10 +344,12 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         if self.comparison_mode == "fixed_resolution":
             equivalence_classes = defaultdict(list)
 
-            for vertex, signature in root_signatures.items():
+            for vertex, signature in tqdm(root_signatures.items(), total=len(root_signatures),
+                                          desc="Grouping signatures", unit="vertex", dynamic_ncols=True):
                 equivalence_classes[signature].append(vertex)
 
             return equivalence_classes
+
 
         similarity_graph = nx.Graph()
         similarity_graph.add_nodes_from(root_signatures.keys())
