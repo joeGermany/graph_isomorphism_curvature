@@ -1,5 +1,9 @@
 unified_vertex_signatures_asOf11.8.2026/
+k_wl/run_wl
+kwl_output/
 lib/
 
 .DS_Store
 **/.DS_Store
+**/__pycache__/
+*.py[cod]

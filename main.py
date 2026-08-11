@@ -7,7 +7,7 @@ import random
 import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from k_wl.kwl import run_kwl
-from unified_vertex_signatures.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+from module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
 
 def randomly_permute_graph(G,seed=None):
     rng=random.Random(seed)
