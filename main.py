@@ -7,7 +7,7 @@ import random
 import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from k_wl.kwl import run_kwl
-from heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+from unified_vertex_signatures.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
 
 def randomly_permute_graph(G,seed=None):
     rng=random.Random(seed)
@@ -194,7 +194,7 @@ def read_dimacs_or_simple_graph(filename):
 
 
 def main():
-    graph_file = Path("../Graphs/ag2-8")
+    graph_file = Path("graphs/nauty_graphs/sts/sts-13")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set the parameters fit_order/fit_start/fit_end
@@ -299,7 +299,7 @@ def main():
     # k-WL uses an external executable named `run_wl`.
     # Before running the experiment, compile it once with:
 
-    #   cd k-wl
+    #   cd k_wl
 
     # Linux / Windows with g++:
     #   g++ -std=c++17 -O3 main.cpp weisfeiler_lehman.cpp -o run_wl

@@ -5,7 +5,7 @@ import networkx as nx
 import numpy as np
 from scipy.stats import linregress
 from tqdm.auto import tqdm
-from vertex_equivalence_interface import VertexEquivalenceInterface, EquivalenceClasses
+from unified_vertex_signatures.vertex_equivalence_interface import VertexEquivalenceInterface, EquivalenceClasses
 
 
 class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
