@@ -69,17 +69,44 @@ def are_cospectral_vertices(G, u, v, tol=1e-11):
 
     return np.allclose(eig_u, eig_v, atol=tol)
 
+def paley_graph(q):
+    import networkx as nx
+
+    residues = {(i*i) % q for i in range(1, q)}
+    G = nx.Graph()
+    G.add_nodes_from(range(q))
+
+    for i in range(q):
+        for j in range(i+1, q):
+            if (j-i) % q in residues:
+                G.add_edge(i, j)
+
+    return G
+
 if __name__ == "__main__":
     start_time = time.perf_counter()
 
-    filename  = "smallGraphsFromAmer/graph-01"
+    # filename  = "smallGraphsFromAmer/graph-01"
 
-    with open(filename) as f:
-        num_of_nodes = int(next(f).split()[0])
-        G = nx.parse_edgelist(f, nodetype=int)
+    # with open(filename) as f:
+    #     num_of_nodes = int(next(f).split()[0])
+    #     G = nx.parse_edgelist(f, nodetype=int)
 
-    G.add_nodes_from(range(num_of_nodes))
-    laplacianMatrix = nx.laplacian_matrix(G, nodelist=range(num_of_nodes)).toarray()
+    # G.add_nodes_from(range(num_of_nodes))
+
+    # G = paley_graph(13)
+    G = nx.random_regular_graph(d=4, n=50)
+    # # To make it a strong regular Rook's graph, connect nodes in the same row/column
+    # g_rook = nx.Graph()
+    # for u, v in g_paley9.nodes():
+    #     g_rook.add_node((u, v))
+    # for u1, v1 in g_rook.nodes():
+    #     for u2, v2 in g_rook.nodes():
+    #         if (u1 == u2 and v1 != v2) or (v1 == v2 and u1 != u2):
+    #             g_rook.add_edge((u1, v1), (u2, v2))
+
+    num_of_nodes = G.number_of_nodes()
+    laplacianMatrix = nx.laplacian_matrix(G).toarray()
 
     adjacency = {v: list(G.neighbors(v)) for v in G.nodes()}
 

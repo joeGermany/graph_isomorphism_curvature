@@ -8,6 +8,7 @@ from collections import defaultdict
 import ast
 from sklearn.metrics.cluster import normalized_mutual_info_score
 import time
+import pynauty
 
 def get_orbits_from_file(original_filename):
     orbits_filename = original_filename + "_orbits.txt"
@@ -28,10 +29,36 @@ def turn_membership_array_into_clustering_array(array, num_of_nodes, num_of_clas
 
     return clustering
 
+def compute_orbits(G):
+    nodes = list(G.nodes())
+
+    mapping = {v: i for i, v in enumerate(nodes)}
+    inverse = {i: v for v, i in mapping.items()}
+
+    adjacency = {
+        mapping[v]: [mapping[u] for u in G.neighbors(v)]
+        for v in nodes
+    }
+
+    g = pynauty.Graph(
+        number_of_vertices=len(nodes),
+        directed=False,
+        adjacency_dict=adjacency
+    )
+
+    _, _, _, orbit_labels, _ = pynauty.autgrp(g)
+
+    orbit_dict = {}
+    for vertex, orbit_id in enumerate(orbit_labels):
+        orbit_dict.setdefault(orbit_id, []).append(inverse[vertex])
+
+    return list(orbit_dict.values())
+
 if __name__ == "__main__":
     start_time = time.perf_counter()
 
-    filename  = "ags/ag2-08__02"
+    filename  = "ags/ag2-08__01"
+    # filename = "CHH_cc(3-3)_198-2-0indexed"
     with open(filename) as f:
         num_of_nodes = int(next(f).split()[0])
         G = nx.parse_edgelist(f, nodetype=int)
@@ -39,8 +66,11 @@ if __name__ == "__main__":
     G.add_nodes_from(range(num_of_nodes))
     laplacianMatrix = nx.laplacian_matrix(G, nodelist=range(num_of_nodes)).toarray()
 
-    orbits = get_orbits_from_file(filename)
+    orbits = compute_orbits(G)
+    # orbits = get_orbits_from_file(filename)
+    print(orbits, len(orbits))
     orbits_clustering = turn_membership_array_into_clustering_array(orbits, num_of_nodes, len(orbits))
+    print(orbits_clustering)
 
     eigenvals, eigenvecs = np.linalg.eigh(laplacianMatrix)
     eigensolver_time = time.perf_counter()
@@ -93,7 +123,7 @@ if __name__ == "__main__":
     for i in range(num_of_nodes):
         groups[coeffs[i].tobytes()].append(i)
 
-    maximum_BFS_depth = 5
+    maximum_BFS_depth = 2
 
     for v in G.nodes():
 
@@ -114,11 +144,12 @@ if __name__ == "__main__":
     #     groups[key].append(i)
             
     equivalence_classes = list(groups.values())
-    print(equivalence_classes)
 
     equivalence_classes_clustering = turn_membership_array_into_clustering_array(equivalence_classes, num_of_nodes, len(equivalence_classes))
+    # print(orbits)
+    print(len(equivalence_classes))
 
-    print("NMI (original): ", normalized_mutual_info_score(orbits_clustering[:136], equivalence_classes_clustering[:136]))
+    # print("NMI (original): ", normalized_mutual_info_score(orbits_clustering[:136], equivalence_classes_clustering[:136]))
     print("NMI (all): ", normalized_mutual_info_score(orbits_clustering, equivalence_classes_clustering))
 
     # # print(np.unique(equivalence_classes_clustering[:136]))
