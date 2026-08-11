@@ -12,7 +12,7 @@ from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComp
 from src.utils.graph_utils import *
 
 def main():
-    graph_file = Path("graphs/nauty_graphs/sts/sts-13")
+    graph_file = Path("graphs/TedSpence/25-12-5-6/Graph2")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set the parameters fit_order/fit_start/fit_end
@@ -41,7 +41,7 @@ def main():
     subdivision_k = 0
 
     # Use compact shared signature IDs instead of storing full signatures.
-    use_ids = True
+    use_ids = False
 
     node_settings = {
         "signature_mode": "full_matrix",
