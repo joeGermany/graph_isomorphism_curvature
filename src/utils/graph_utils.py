@@ -10,7 +10,7 @@ def randomly_permute_graph(G,seed=None):
     vertices=list(G.nodes())
     permuted_vertices=vertices.copy()
     rng.shuffle(permuted_vertices)
-    print(permuted_vertices)
+    # print(permuted_vertices)
     mapping=dict(zip(vertices,permuted_vertices))
     H=nx.relabel_nodes(G,mapping,copy=True)
 

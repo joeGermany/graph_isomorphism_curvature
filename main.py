@@ -94,7 +94,7 @@ def main():
         RED = "\033[91m"
         RESET = "\033[0m"
 
-        print(f"Shared IDs preserved under permutation: {GREEN if ids_match else RED}{ids_match}{RESET}")
+        # print(f"Shared IDs preserved under permutation: {GREEN if ids_match else RED}{ids_match}{RESET}")
 
         all_classes = G_all_classes
 
@@ -108,6 +108,9 @@ def main():
     class_labels = partition_to_labels(classes,original_n)
     orbit_labels = partition_to_labels(true_orbits,original_n)
 
+    print(class_labels)
+    print(orbit_labels)
+
     nmi = normalized_mutual_info_score(orbit_labels,class_labels)
     probability = compute_overall_same_orbit_probability(graph,classes,original_n)
 
@@ -116,33 +119,34 @@ def main():
 
     # k-WL uses an external executable named `run_wl`.
     # Before running the experiment, compile it once with:
-
-    #   cd k_wl
-
+    # 
+    #   cd src/k_wl
+    # 
     # Linux / Windows with g++:
     #   g++ -std=c++17 -O3 main.cpp weisfeiler_lehman.cpp -o run_wl
     #
     # macOS:
     #   clang++ -std=c++17 -O3 main.cpp weisfeiler_lehman.cpp -o run_wl
 
-    k_wl_parameter = 2
+    # UNCOMMENT FROM HERE:
+    # k_wl_parameter = 2
 
-    unit_kwl_classes = run_kwl(original_graph, k_wl_parameter, output_dir="kwl_output/unit_coloring")
-    heat_kwl_classes = run_kwl(original_graph, k_wl_parameter, initial_partition=classes, output_dir="kwl_output/heat_colored")
+    # unit_kwl_classes = run_kwl(original_graph, k_wl_parameter, output_dir="kwl_output/unit_coloring")
+    # heat_kwl_classes = run_kwl(original_graph, k_wl_parameter, initial_partition=classes, output_dir="kwl_output/heat_colored")
 
-    unit_kwl_labels = partition_to_labels(unit_kwl_classes, original_n)
-    heat_kwl_labels = partition_to_labels(heat_kwl_classes, original_n)
+    # unit_kwl_labels = partition_to_labels(unit_kwl_classes, original_n)
+    # heat_kwl_labels = partition_to_labels(heat_kwl_classes, original_n)
 
-    unit_kwl_nmi = normalized_mutual_info_score(orbit_labels, unit_kwl_labels)
-    heat_kwl_nmi = normalized_mutual_info_score(orbit_labels, heat_kwl_labels)
+    # unit_kwl_nmi = normalized_mutual_info_score(orbit_labels, unit_kwl_labels)
+    # heat_kwl_nmi = normalized_mutual_info_score(orbit_labels, heat_kwl_labels)
 
-    true_orbit_set = {tuple(sorted(orbit)) for orbit in true_orbits}
+    # true_orbit_set = {tuple(sorted(orbit)) for orbit in true_orbits}
 
-    unit_matches = sum(tuple(sorted(cls)) in true_orbit_set for cls in unit_kwl_classes)
-    heat_matches = sum(tuple(sorted(cls)) in true_orbit_set for cls in heat_kwl_classes)
+    # unit_matches = sum(tuple(sorted(cls)) in true_orbit_set for cls in unit_kwl_classes)
+    # heat_matches = sum(tuple(sorted(cls)) in true_orbit_set for cls in heat_kwl_classes)
 
-    print(f"2-WL unit_coloring: NMI = {unit_kwl_nmi:.4f}, classes = {len(unit_kwl_classes)}, matching classes = {unit_matches}")
-    print(f"2-WL heat_colored: NMI = {heat_kwl_nmi:.4f}, classes = {len(heat_kwl_classes)}, matching classes = {heat_matches}")
+    # print(f"{k_wl_parameter}-WL unit_coloring: NMI = {unit_kwl_nmi:.4f}, classes = {len(unit_kwl_classes)}, matching classes = {unit_matches}")
+    # print(f"{k_wl_parameter}-WL heat_colored: NMI = {heat_kwl_nmi:.4f}, classes = {len(heat_kwl_classes)}, matching classes = {heat_matches}")
 
 if __name__ == "__main__":
     main()

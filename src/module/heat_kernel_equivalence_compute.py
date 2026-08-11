@@ -8,7 +8,6 @@ from tqdm.auto import tqdm
 from src.module.vertex_equivalence_interface import VertexEquivalenceInterface, EquivalenceClasses
 
 class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
-
     def __init__(
             self,
             node_settings,
