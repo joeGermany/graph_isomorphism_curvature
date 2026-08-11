@@ -339,6 +339,82 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         return True
 
+    def assign_shared_ids(self, G_signatures, H_signatures, start_id=0):
+        signature_to_id = {}
+        G_ids = {}
+        H_ids = {}
+        next_id = start_id
+
+        for item, signature in G_signatures.items():
+            if signature not in signature_to_id:
+                signature_to_id[signature] = next_id
+                next_id += 1
+
+            G_ids[item] = signature_to_id[signature]
+
+        for item, signature in H_signatures.items():
+            if signature not in signature_to_id:
+                signature_to_id[signature] = next_id
+                next_id += 1
+
+            H_ids[item] = signature_to_id[signature]
+
+        return G_ids, H_ids, next_id
+
+    def compute_shared_vertex_ids(self, G, H):
+        if self.comparison_mode != "fixed_resolution":
+            raise ValueError("Shared IDs currently require fixed_resolution.")
+
+        next_id = 0
+
+        # Node signatures
+        G_node_signatures = self._compute_signatures(G, "node")
+        H_node_signatures = self._compute_signatures(H, "node")
+
+        G_node_signatures = self._truncate_signatures(G_node_signatures, "node")
+        H_node_signatures = self._truncate_signatures(H_node_signatures, "node")
+
+        G_node_ids, H_node_ids, next_id = self.assign_shared_ids(
+            G_node_signatures, H_node_signatures, next_id
+        )
+
+        del G_node_signatures, H_node_signatures
+
+        # Edge signatures
+        G_edge_ids = {}
+        H_edge_ids = {}
+
+        if self.include_edges:
+            G_edge_signatures = self._compute_signatures(G, "edge")
+            H_edge_signatures = self._compute_signatures(H, "edge")
+
+            G_edge_signatures = self._truncate_signatures(G_edge_signatures, "edge")
+            H_edge_signatures = self._truncate_signatures(H_edge_signatures, "edge")
+
+            G_edge_ids, H_edge_ids, next_id = self.assign_shared_ids(
+                G_edge_signatures, H_edge_signatures, next_id
+            )
+
+            del G_edge_signatures, H_edge_signatures
+
+        if self.bfs_depth is None:
+            G_root_signatures = self._signatures_without_bfs(G, G_node_ids, G_edge_ids)
+            H_root_signatures = self._signatures_without_bfs(H, H_node_ids, H_edge_ids)
+        else:
+            G_root_signatures = self._signatures_with_bfs(G, G_node_ids, G_edge_ids)
+            H_root_signatures = self._signatures_with_bfs(H, H_node_ids, H_edge_ids)
+
+        del G_node_ids, H_node_ids, G_edge_ids, H_edge_ids
+
+        # Give each complete BFS signature an ID too
+        G_vertex_ids, H_vertex_ids, next_id = self.assign_shared_ids(
+            G_root_signatures, H_root_signatures, next_id
+        )
+
+        del G_root_signatures, H_root_signatures
+
+        return G_vertex_ids, H_vertex_ids
+
     def compute_equivalence_classes(self, root_signatures) -> EquivalenceClasses:
 
         if self.comparison_mode == "fixed_resolution":

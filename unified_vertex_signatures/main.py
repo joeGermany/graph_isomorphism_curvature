@@ -3,12 +3,23 @@ from pathlib import Path
 import networkx as nx
 import pynauty
 from sklearn.metrics import normalized_mutual_info_score
+import random
 import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-
 from k_wl.kwl import run_kwl
-
 from heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+
+def randomly_permute_graph(G,seed=None):
+    rng=random.Random(seed)
+
+    vertices=list(G.nodes())
+    permuted_vertices=vertices.copy()
+    rng.shuffle(permuted_vertices)
+    print(permuted_vertices)
+    mapping=dict(zip(vertices,permuted_vertices))
+    H=nx.relabel_nodes(G,mapping,copy=True)
+
+    return H,mapping
 def get_orbits_with_pynauty(G):
     n = G.number_of_nodes()
 
@@ -183,7 +194,7 @@ def read_dimacs_or_simple_graph(filename):
 
 
 def main():
-    graph_file = Path("../Graphs/sts-13")
+    graph_file = Path("../Graphs/ag2-8")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set the parameters fit_order/fit_start/fit_end
@@ -210,6 +221,9 @@ def main():
     #   1  -> end_time = 1 / lambda_min
 
     subdivision_k = 0
+
+    # Use compact shared signature IDs instead of storing full signatures.
+    use_ids = True
 
     node_settings = {
         "signature_mode": "full_matrix",
@@ -243,10 +257,32 @@ def main():
 
     original_graph = read_dimacs_or_simple_graph(graph_file)
     original_n = original_graph.number_of_nodes()
-    graph = subdivide_every_edge(original_graph,subdivision_k)
+    graph = subdivide_every_edge(original_graph, subdivision_k)
 
-    signatures = equivalence_computer.compute_vertex_signatures(graph)
-    all_classes = equivalence_computer.compute_equivalence_classes(signatures)
+    if use_ids:
+        H, mapping = randomly_permute_graph(graph)
+
+        G_vertex_ids, H_vertex_ids = equivalence_computer.compute_shared_vertex_ids(graph, H)
+
+        G_all_classes = equivalence_computer.compute_equivalence_classes(G_vertex_ids)
+        H_all_classes = equivalence_computer.compute_equivalence_classes(H_vertex_ids)
+
+        ids_match = all(
+            G_vertex_ids[vertex] == H_vertex_ids[mapping[vertex]]
+            for vertex in graph.nodes()
+        )
+
+        GREEN = "\033[92m"
+        RED = "\033[91m"
+        RESET = "\033[0m"
+
+        print(f"Shared IDs preserved under permutation: {GREEN if ids_match else RED}{ids_match}{RESET}")
+
+        all_classes = G_all_classes
+
+    else:
+        signatures = equivalence_computer.compute_vertex_signatures(graph)
+        all_classes = equivalence_computer.compute_equivalence_classes(signatures)
 
     classes = restrict_to_original(all_classes,original_n)
     true_orbits = get_true_orbits_restricted(graph,original_n)
