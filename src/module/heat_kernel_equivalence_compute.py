@@ -1,12 +1,11 @@
 from collections import defaultdict
 from itertools import combinations
-
 import networkx as nx
 import numpy as np
 from scipy.stats import linregress
 from tqdm.auto import tqdm
-from module.vertex_equivalence_interface import VertexEquivalenceInterface, EquivalenceClasses
 
+from src.module.vertex_equivalence_interface import VertexEquivalenceInterface, EquivalenceClasses
 
 class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
