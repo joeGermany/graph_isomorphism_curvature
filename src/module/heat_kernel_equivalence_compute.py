@@ -58,6 +58,11 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             incidence = nx.incidence_matrix(G, nodelist=nodes, edgelist=edges, oriented=True).toarray()
             edge_items = [self._edge_key(u, v) for u, v in edges]
             return np.asarray(incidence.T @ incidence, dtype=np.float64), edge_items, edges
+            
+            # laplacian_edges_BTansposeB = np.asarray(incidence.T @ incidence, dtype=np.float64)
+            # adjacency_edges = np.abs(laplacian_edges_BTansposeB - np.diag(np.diag(laplacian_edges_BTansposeB)))
+            # laplacian_edges = np.diag(np.diag(laplacian_edges_BTansposeB)) - adjacency_edges
+            # return laplacian_edges, edge_items, edges
 
     def _time_values(self, eigenvalues, domain):
         settings = self._domain_settings(domain)
@@ -296,6 +301,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             groups[sig].append(edge)
 
         print("Number of unique edge signatures: ", len(groups))
+
 
         if self.bfs_depth is None:
             return self._signatures_without_bfs(G, node_signatures, edge_signatures)

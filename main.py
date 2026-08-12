@@ -113,8 +113,43 @@ def main():
     print(class_labels)
     print(orbit_labels)
 
-    nmi = normalized_mutual_info_score(orbit_labels,class_labels)
-    probability = compute_overall_same_orbit_probability(graph,classes,original_n)
+    # adjacency_2 = np.zeros((original_n, original_n))
+    # for i in range(original_n):
+    #     for target,distance in nx.single_source_shortest_path_length(graph,i,2).items():
+    #         if distance == 2 and target != i:
+    #             adjacency_2[i][target] = 1
+    #             adjacency_2[target][i] = 1
+
+    # graph_2 = nx.from_numpy_array(adjacency_2)
+
+    # signatures_2 = equivalence_computer.compute_vertex_signatures(graph_2)
+    # all_classes_2 = equivalence_computer.compute_equivalence_classes(signatures_2)
+
+    # classes_2 = restrict_to_original(all_classes_2,original_n)
+    # true_orbits_2 = get_true_orbits_restricted(graph_2,original_n)
+
+    # class_labels_2 = partition_to_labels(classes_2,original_n)
+    # orbit_labels_2 = partition_to_labels(true_orbits_2,original_n)
+
+    # print(class_labels_2)
+    # print(orbit_labels_2)
+
+    # new_root_signatures = {}
+    # for i in range(len(signatures)):
+    #     new_root_signatures[i] = signatures[i] + signatures_2[i]
+    # equivalence_classes_all = defaultdict(list)
+    # for vertex, signature in new_root_signatures.items():
+    #     equivalence_classes_all[signature].append(vertex)
+    # class_labels_all = partition_to_labels(equivalence_classes_all,original_n)
+
+    # print("classes_all: ", class_labels_all)
+    # print("orbits_all: ", orbit_labels)
+
+    nmi = normalized_mutual_info_score(class_labels, orbit_labels)
+    probability = compute_overall_same_orbit_probability(graph, classes, original_n)
+
+    # nmi = normalized_mutual_info_score(orbit_labels,class_labels)
+    # probability = compute_overall_same_orbit_probability(graph,classes,original_n)
 
     print(f"NMI: {nmi:.4f}")
     print(f"Same-orbit probability: {probability:.4f}")

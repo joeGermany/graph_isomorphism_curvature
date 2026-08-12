@@ -14,7 +14,7 @@ from src.utils.graph_utils import *
 import numpy as np
 
 def main():
-    graph_file = Path("graphs/TedSpence/25-12-5-6/Graph3")
+    graph_file = Path("graphs/TedSpence/26-10-3-4/Graph3")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set the parameters fit_order/fit_start/fit_end
@@ -85,9 +85,10 @@ def main():
     incidence = nx.incidence_matrix(graph, nodelist=nodes, edgelist=edges, oriented=True).toarray()
     laplacian_edges = np.asarray(incidence.T @ incidence, dtype=np.float64)
     adjacency_edges = np.abs(laplacian_edges - np.diag(np.diag(laplacian_edges)))
-    graph = nx.from_numpy_array(adjacency_edges)
+    graph_edges = nx.from_numpy_array(adjacency_edges)
 
     original_n = graph.number_of_nodes()
+    original_n_edges = graph_edges.number_of_nodes()
 
     # for node, degree in graph.degree():
     #     print(f"Node {node}: {degree}")
@@ -98,42 +99,56 @@ def main():
 
     # nx.write_gexf(graph, "25-12-5-6_3_edge_graph.gexf")
 
-    if use_ids:
-        H, mapping = randomly_permute_graph(graph)
-
-        G_vertex_ids, H_vertex_ids = equivalence_computer.compute_shared_vertex_ids(graph, H)
-
-        G_all_classes = equivalence_computer.compute_equivalence_classes(G_vertex_ids)
-        H_all_classes = equivalence_computer.compute_equivalence_classes(H_vertex_ids)
-
-        ids_match = all(
-            G_vertex_ids[vertex] == H_vertex_ids[mapping[vertex]]
-            for vertex in graph.nodes()
-        )
-
-        GREEN = "\033[92m"
-        RED = "\033[91m"
-        RESET = "\033[0m"
-
-        # print(f"Shared IDs preserved under permutation: {GREEN if ids_match else RED}{ids_match}{RESET}")
-
-        all_classes = G_all_classes
-
-    else:
-        signatures = equivalence_computer.compute_vertex_signatures(graph)
-        all_classes = equivalence_computer.compute_equivalence_classes(signatures)
-
+    signatures = equivalence_computer.compute_vertex_signatures(graph)
+    all_classes = equivalence_computer.compute_equivalence_classes(signatures)
     classes = restrict_to_original(all_classes,original_n)
     true_orbits = get_true_orbits_restricted(graph,original_n)
-
     class_labels = partition_to_labels(classes,original_n)
     orbit_labels = partition_to_labels(true_orbits,original_n)
 
-    print(class_labels)
+    print("Nodes Classes: ", class_labels)
+    print("Nodes Orbits: ", orbit_labels)
+
+    signatures_edges = equivalence_computer.compute_vertex_signatures(graph_edges)
+    all_classes_edges = equivalence_computer.compute_equivalence_classes(signatures_edges)
+    classes_edges = restrict_to_original(all_classes_edges, original_n_edges)
+    true_orbits_edges = get_true_orbits_restricted(graph_edges, original_n_edges)
+    class_labels_edges = partition_to_labels(classes_edges, original_n_edges)
+    orbit_labels_edges = partition_to_labels(true_orbits_edges, original_n_edges)
+    max_label_from_nodes = int(np.max(np.array(class_labels))) + 1
+    print(max_label_from_nodes)
+    for i in range(len(class_labels_edges)):
+        class_labels_edges[i] += max_label_from_nodes
+
+    print("Edges Classes: ", class_labels_edges)
+    print("Edges Orbits: ", orbit_labels_edges)
+
+    final_signatures = {}
+    for vertex in range(original_n):
+        label = [[class_labels[vertex]], []] #, []] # since strongly regular -> will have diameter 2
+        for target, distance in nx.single_source_shortest_path_length(graph, vertex).items():
+            # label[distance].append()
+            for edge_index in range(len(edges)):
+                if (edges[edge_index][0] == vertex and edges[edge_index][1] == target) or (edges[edge_index][0] == target and edges[edge_index][1] == vertex):
+                    label[distance].append(class_labels_edges[edge_index])
+
+        label[1] = sorted(label[1])
+        print(label)
+        # label[2] = sorted(label[2])
+        final_signatures[vertex] = tuple(tuple(item) for item in label)
+
+    final_classes = defaultdict(list)
+
+    for node, sig in final_signatures.items():
+        final_classes[sig].append(node)
+
+    final_class_labels = partition_to_labels(final_classes, original_n)
+
+    print(final_class_labels)
     print(orbit_labels)
 
-    nmi = normalized_mutual_info_score(orbit_labels,class_labels)
-    probability = compute_overall_same_orbit_probability(graph,classes,original_n)
+    nmi = normalized_mutual_info_score(orbit_labels, final_class_labels)
+    probability = compute_overall_same_orbit_probability(graph, classes, original_n)
 
     print(f"NMI: {nmi:.4f}")
     print(f"Same-orbit probability: {probability:.4f}")
