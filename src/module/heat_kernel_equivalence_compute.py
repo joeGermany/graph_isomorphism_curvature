@@ -216,7 +216,8 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         for item, signature in signatures.items():
             values = np.asarray(signature, dtype=np.float64)
-            truncated[item] = tuple(int(value) for value in np.trunc(values * resolutions))
+            # truncated[item] = tuple(int(value) for value in np.trunc(values * resolutions))
+            truncated[item] = tuple(int(value) for value in np.round(values * resolutions))
 
         return truncated
 
@@ -280,6 +281,21 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
             if edge_signatures:
                 edge_signatures = self._truncate_signatures(edge_signatures, "edge")
+
+        # This is just for debugging purposes for the time being.
+        groups = defaultdict(list)
+
+        for node, sig in node_signatures.items():
+            groups[sig].append(node)
+
+        print("Number of unique node signatures: ", len(groups))
+
+        groups = defaultdict(list)
+
+        for edge, sig in edge_signatures.items():
+            groups[sig].append(edge)
+
+        print("Number of unique edge signatures: ", len(groups))
 
         if self.bfs_depth is None:
             return self._signatures_without_bfs(G, node_signatures, edge_signatures)

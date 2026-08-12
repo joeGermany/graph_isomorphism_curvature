@@ -11,8 +11,10 @@ from src.k_wl.kwl import run_kwl
 from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
 from src.utils.graph_utils import *
 
+import numpy as np
+
 def main():
-    graph_file = Path("graphs/TedSpence/25-12-5-6/Graph2")
+    graph_file = Path("graphs/TedSpence/26-10-3-4/Graph3")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set the parameters fit_order/fit_start/fit_end
@@ -46,7 +48,7 @@ def main():
     node_settings = {
         "signature_mode": "full_matrix",
         "time_step": 0.1,
-        "end_time_multiplier": 5,
+        "end_time_multiplier": 100,
         "fit_order": 6,
         "fit_start": 1,
         "fit_end": 6,
@@ -56,7 +58,7 @@ def main():
     edge_settings = {
         "signature_mode": "full_matrix",
         "time_step": 0.1,
-        "end_time_multiplier": 5,
+        "end_time_multiplier": 100,
         "fit_order": 6,
         "fit_start": 1,
         "fit_end": 4,
