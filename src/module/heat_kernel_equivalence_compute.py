@@ -57,12 +57,13 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             edges = list(G.edges())
             incidence = nx.incidence_matrix(G, nodelist=nodes, edgelist=edges, oriented=True).toarray()
             edge_items = [self._edge_key(u, v) for u, v in edges]
-            return np.asarray(incidence.T @ incidence, dtype=np.float64), edge_items, edges
+            # return np.asarray(incidence.T @ incidence, dtype=np.float64), edge_items, edges
             
-            # laplacian_edges_BTansposeB = np.asarray(incidence.T @ incidence, dtype=np.float64)
-            # adjacency_edges = np.abs(laplacian_edges_BTansposeB - np.diag(np.diag(laplacian_edges_BTansposeB)))
-            # laplacian_edges = np.diag(np.diag(laplacian_edges_BTansposeB)) - adjacency_edges
-            # return laplacian_edges, edge_items, edges
+            laplacian_edges_BTansposeB = np.asarray(incidence.T @ incidence, dtype=np.float64)
+            adjacency_edges = np.abs(laplacian_edges_BTansposeB - np.diag(np.diag(laplacian_edges_BTansposeB)))
+            new_degrees = np.sum(adjacency_edges, axis=1)
+            laplacian_edges = np.diag(new_degrees) - adjacency_edges
+            return laplacian_edges, edge_items, edges
 
     def _time_values(self, eigenvalues, domain):
         settings = self._domain_settings(domain)
@@ -221,8 +222,8 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         for item, signature in signatures.items():
             values = np.asarray(signature, dtype=np.float64)
-            # truncated[item] = tuple(int(value) for value in np.trunc(values * resolutions))
-            truncated[item] = tuple(int(value) for value in np.round(values * resolutions))
+            truncated[item] = tuple(int(value) for value in np.trunc(values * resolutions))
+            # truncated[item] = tuple(int(value) for value in np.round(values * resolutions))
 
         return truncated
 
@@ -288,12 +289,12 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
                 edge_signatures = self._truncate_signatures(edge_signatures, "edge")
 
         # This is just for debugging purposes for the time being.
-        groups = defaultdict(list)
+        # groups = defaultdict(list)
 
-        for node, sig in node_signatures.items():
-            groups[sig].append(node)
+        # for node, sig in node_signatures.items():
+        #     groups[sig].append(node)
 
-        print("Number of unique node signatures: ", len(groups))
+        # print("Number of unique node signatures: ", len(groups))
 
         # groups = defaultdict(list)
 
