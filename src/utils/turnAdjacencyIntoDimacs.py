@@ -1,7 +1,7 @@
 import numpy as np
 import networkx as nx
 
-number = "26-10-3-4"
+number = "35-18-9-9"
 common = f"graphs/TedSpence/{number}"
 
 with open(f"{common}/{number}_adjacencies", "r") as f:

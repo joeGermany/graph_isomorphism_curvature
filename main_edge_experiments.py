@@ -4,6 +4,7 @@ import networkx as nx
 import pynauty
 from sklearn.metrics import normalized_mutual_info_score
 import random
+from tqdm.auto import tqdm
 import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
@@ -13,8 +14,9 @@ from src.utils.graph_utils import *
 
 import numpy as np
 
-def main():
-    graph_file = Path("graphs/TedSpence/26-10-3-4/Graph3")
+def main(instance):
+    print(f"Graph{instance}")
+    graph_file = Path(f"graphs/TedSpence/35-18-9-9/Graph{instance}")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set the parameters fit_order/fit_start/fit_end
@@ -116,7 +118,7 @@ def main():
     class_labels_edges = partition_to_labels(classes_edges, original_n_edges)
     orbit_labels_edges = partition_to_labels(true_orbits_edges, original_n_edges)
     max_label_from_nodes = int(np.max(np.array(class_labels))) + 1
-    print(max_label_from_nodes)
+    # print(max_label_from_nodes)
     for i in range(len(class_labels_edges)):
         class_labels_edges[i] += max_label_from_nodes
 
@@ -124,7 +126,7 @@ def main():
     print("Edges Orbits: ", orbit_labels_edges)
 
     final_signatures = {}
-    for vertex in range(original_n):
+    for vertex in tqdm(range(original_n)):
         label = [[class_labels[vertex]], []] #, []] # since strongly regular -> will have diameter 2
         for target, distance in nx.single_source_shortest_path_length(graph, vertex).items():
             # label[distance].append()
@@ -133,7 +135,7 @@ def main():
                     label[distance].append(class_labels_edges[edge_index])
 
         label[1] = sorted(label[1])
-        print(label)
+        # print(label)
         # label[2] = sorted(label[2])
         final_signatures[vertex] = tuple(tuple(item) for item in label)
 
@@ -144,14 +146,19 @@ def main():
 
     final_class_labels = partition_to_labels(final_classes, original_n)
 
-    print(final_class_labels)
-    print(orbit_labels)
+    print("Final classes: ", final_class_labels)
+    print("Orbits: ", orbit_labels)
 
     nmi = normalized_mutual_info_score(orbit_labels, final_class_labels)
-    probability = compute_overall_same_orbit_probability(graph, classes, original_n)
+    # probability = compute_overall_same_orbit_probability(graph, final_classes, original_n)
 
-    print(f"NMI: {nmi:.4f}")
-    print(f"Same-orbit probability: {probability:.4f}")
+    print(f"NMI of Graph{instance}: {nmi:.4f}")
+
+    if int(nmi) != 1:
+        print("OH DAMN")
+        return
+
+    # print(f"Same-orbit probability: {probability:.4f}")
 
     # k-WL uses an external executable named `run_wl`.
     # Before running the experiment, compile it once with:
@@ -185,4 +192,5 @@ def main():
     # print(f"{k_wl_parameter}-WL heat_colored: NMI = {heat_kwl_nmi:.4f}, classes = {len(heat_kwl_classes)}, matching classes = {heat_matches}")
 
 if __name__ == "__main__":
-    main()
+    for i in range(1, 3855):
+        main(i)

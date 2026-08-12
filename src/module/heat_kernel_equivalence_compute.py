@@ -295,12 +295,12 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         print("Number of unique node signatures: ", len(groups))
 
-        groups = defaultdict(list)
+        # groups = defaultdict(list)
 
-        for edge, sig in edge_signatures.items():
-            groups[sig].append(edge)
+        # for edge, sig in edge_signatures.items():
+        #     groups[sig].append(edge)
 
-        print("Number of unique edge signatures: ", len(groups))
+        # print("Number of unique edge signatures: ", len(groups))
 
 
         if self.bfs_depth is None:
