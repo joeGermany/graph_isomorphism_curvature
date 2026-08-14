@@ -3,6 +3,32 @@ from pathlib import Path
 import networkx as nx
 import pynauty
 import random
+import numpy as np
+
+def construct_next_line_graph(current_graph,current_membership):
+    nodes=list(current_graph.nodes())
+    edges=list(current_graph.edges())
+
+    incidence=nx.incidence_matrix(
+        current_graph,
+        nodelist=nodes,
+        edgelist=edges,
+        oriented=True,
+    ).toarray()
+
+    BTB=np.asarray(incidence.T@incidence,dtype=np.float64)
+    adjacency=np.abs(BTB-np.diag(np.diag(BTB)))
+    next_graph=nx.from_numpy_array(adjacency)
+    next_membership={
+        vertex:set()
+        for vertex in current_membership
+    }
+    for new_node,(u,v) in enumerate(edges):
+        for original_vertex,items in current_membership.items():
+            if u in items or v in items:
+                next_membership[original_vertex].add(new_node)
+
+    return next_graph,next_membership
 
 def randomly_permute_graph(G,seed=None):
     rng=random.Random(seed)
