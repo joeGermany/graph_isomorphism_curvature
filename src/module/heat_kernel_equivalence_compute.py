@@ -165,8 +165,8 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         for item, signature in signatures.items():
             values = np.asarray(signature, dtype=np.float64)
-            truncated[item] = tuple(int(value) for value in np.trunc(values * resolutions))
-            # truncated[item] = tuple(int(value) for value in np.round(values * resolutions))
+            # truncated[item] = tuple(int(value) for value in np.trunc(values * resolutions))
+            truncated[item] = tuple(int(value) for value in np.round(values * resolutions))
 
         return truncated
 

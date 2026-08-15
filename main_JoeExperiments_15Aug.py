@@ -8,11 +8,12 @@ from src.utils.graph_utils import *
 
 
 def main():
-    graph_type = "36-15-6-6"
-    with open(f"{graph_type}_output.txt", "w") as file:
-        for instance in [5306, 7185, 7360, 10133, 10266, 10408, 10411, 10413, 10414, 10415, 10879, 10904, 11064, 13011, 15310, 17286, 21091, 21092, 22646, 22656, 23842, 24208, 24247, 25142, 25385, 27748, 27755, 27778, 28522, 28524, 28525, 28594, 28629, 28860, 28861, 28867, 28882, 28883, 28884, 28885, 28886]:
+    graph_type = "40-12-2-4"
+    with open(f"{graph_type}_output_round2_withG.txt", "w") as file:
+        for instance in [1,3,5,12,13,15,17,21]:
+            # [5306, 7185, 7360, 10133, 10266, 10408, 10411, 10413, 10414, 10415, 10879, 10904, 11064, 13011, 15310, 17286, 21091, 21092, 22646, 22656, 23842, 24208, 24247, 25142, 25385, 27748, 27755, 27778, 28522, 28524, 28525, 28594, 28629, 28860, 28861, 28867, 28882, 28883, 28884, 28885, 28886]:
             print(f"Graph{instance}")
-            graph_file=Path(f"graphs/{graph}/Graph{instance}")
+            graph_file=Path(f"graphs/TedSpence/{graph_type}/Graph{instance}")
 
             subdivision_k=0
 
@@ -40,7 +41,7 @@ def main():
                 {
                     "name": "L(L(G))",
                     "signature_mode": "full_matrix",
-                    "time_step": 1,
+                    "time_step": 0.2,
                     "end_time_multiplier": 15,
                     "fit_order": 6,
                     "fit_start": 1,
@@ -70,6 +71,9 @@ def main():
 
             class_labels=partition_to_labels(classes,original_n)
             orbit_labels=partition_to_labels(true_orbits,original_n)
+
+            print("Orbits: ", orbit_labels)
+            print("Classes: ", class_labels)
 
             nmi=normalized_mutual_info_score(class_labels,orbit_labels)
             probability=compute_overall_same_orbit_probability(graph,classes,original_n)
@@ -107,6 +111,7 @@ def main():
             # print(f"{k_wl_parameter}-WL unit_coloring: NMI = {unit_kwl_nmi:.4f}, classes = {len(unit_kwl_classes)}, matching classes = {unit_matches}")
             print(f"{k_wl_parameter}-WL heat_colored: NMI = {heat_kwl_nmi:.4f}, classes = {len(heat_kwl_classes)}, matching classes = {heat_matches}")
 
+            file.write(f"Graph{instance}: NMI: {nmi:.4f}, NMI with 1-WL: {heat_kwl_nmi:.4f}, #Orbits of G: {np.max(orbit_labels)+1}, Orbits: {orbit_labels}\n")
 
 if __name__=="__main__":
     start_time = time.perf_counter()
