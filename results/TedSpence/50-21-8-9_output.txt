@@ -1,0 +1,1 @@
+Graph17: NMI: 1.0000, NMI with 1-WL: 1.0000

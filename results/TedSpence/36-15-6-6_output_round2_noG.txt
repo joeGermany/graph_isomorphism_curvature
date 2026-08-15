@@ -1,0 +1,3 @@
+Graph5306: NMI (with L(L(G))): 1.0000
+Graph7185: NMI (with L(L(G))): 1.0000
+Graph7360: NMI (with L(L(G))): 1.0000

@@ -1,0 +1,1 @@
+Graph1: NMI (with L(L(G))): 1.0000
