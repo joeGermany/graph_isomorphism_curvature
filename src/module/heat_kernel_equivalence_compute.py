@@ -188,7 +188,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
     def _group_by_equality(self, signatures):
         classes = defaultdict(list)
-        for item, signature in signatures.items():
+        for item, signature in tqdm(signatures.items(), total=len(signatures), desc="Combining signatures", unit="sig", dynamic_ncols=True):
             classes[signature].append(item)
         return classes
 
@@ -276,7 +276,8 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
     def _signatures_with_bfs(self, G, vertex_signatures):
         root_signatures = {}
 
-        for root in G.nodes():
+        nodes = G.nodes()
+        for root in tqdm(nodes, total=len(nodes), desc=f"Computing BFS signatures", unit="node", dynamic_ncols=True):
             distances = nx.single_source_shortest_path_length(
                 G,
                 root,
