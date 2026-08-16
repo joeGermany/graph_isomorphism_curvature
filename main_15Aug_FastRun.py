@@ -8,9 +8,9 @@ from src.utils.graph_utils import *
 
 
 def main():
-    graph_type = "64-18-2-6"
+    graph_type = "35-18-9-9"
     with open(f"{graph_type}_output_round1_withoutL(L(G)).txt", "w") as file:
-        for instance in range(1, 168):
+        for instance in range(2672, 3854):
             # [17]:
             # range(1, 6761):
             # [15, 16, 29, 31, 34, 38, 41, 46, 47, 48, 50, 52, 73, 78]:
@@ -117,7 +117,9 @@ def main():
             # print(f"{k_wl_parameter}-WL unit_coloring: NMI = {unit_kwl_nmi:.4f}, classes = {len(unit_kwl_classes)}, matching classes = {unit_matches}")
             print(f"{k_wl_parameter}-WL heat_colored: NMI = {heat_kwl_nmi:.4f}, classes = {len(heat_kwl_classes)}, matching classes = {heat_matches}")
 
-            file.write(f"Graph{instance}: NMI: {nmi:.4f}, NMI with 1-WL: {heat_kwl_nmi:.4f}, #Orbits of G: {np.max(orbit_labels)+1}, Orbits: {orbit_labels}\n")
+            file.write(f"Graph{instance}: NMI: {nmi:.4f}, NMI with 1-WL: {heat_kwl_nmi:.4f}, #Orbits of G: {np.max(orbit_labels)+1}\n")
+
+            file.flush()
 
 if __name__=="__main__":
     start_time = time.perf_counter()

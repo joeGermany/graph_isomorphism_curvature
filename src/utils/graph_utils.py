@@ -5,6 +5,18 @@ import pynauty
 import random
 import numpy as np
 
+def construct_distance_graph(G,distance):
+    nodes=list(G.nodes())
+    distance_graph=nx.Graph()
+    distance_graph.add_nodes_from(nodes)
+
+    for root in nodes:
+        for target,d in nx.single_source_shortest_path_length(G,root,cutoff=distance,).items():
+            if d==distance and root!=target:
+                distance_graph.add_edge(root,target)
+
+    return distance_graph
+
 def construct_next_line_graph(current_graph,current_membership):
     nodes=list(current_graph.nodes())
     edges=list(current_graph.edges())
@@ -77,51 +89,55 @@ def get_true_orbits_restricted(G,original_n):
 
     return restricted_orbits
 
+def equivalence_classes_split_orbits(G_classes,true_orbits):
+
+    vertex_to_class={
+        int(vertex):class_id
+        for class_id,cell in enumerate(G_classes.values())
+        for vertex in cell
+    }
+
+    for orbit in true_orbits:
+        classes={
+            vertex_to_class[int(vertex)]
+            for vertex in orbit
+        }
+
+        if len(classes)>1:
+            return True
+
+    return False
+
 def compute_overall_same_orbit_probability(G,G_classes,original_n):
     """
     Compute the overall probability that random individualization selects
     corresponding vertices from the same true orbit.
     """
-    eligible_signatures = sorted(
-        [signature for signature,cell in G_classes.items() if len(cell) > 1],
-        key=repr,
-    )
+    true_orbits=get_true_orbits_restricted(G,original_n)
 
-    if not eligible_signatures:
+    if equivalence_classes_split_orbits(G_classes,true_orbits):
         return 0.0
 
-    true_orbits = get_true_orbits_restricted(G,original_n)
+    if all(len(orbit)==1 for orbit in true_orbits) and all(
+        len(cell)==1 for cell in G_classes.values()
+    ):
+        return 1.0
 
-    vertex_to_orbit = {
+    eligible_classes=[cell for cell in G_classes.values() if len(cell)>1]
+
+    vertex_to_orbit={
         int(vertex):orbit_id
         for orbit_id,orbit in enumerate(true_orbits)
         for vertex in orbit
     }
 
-    class_probabilities = {}
+    probabilities=[]
 
-    for signature in eligible_signatures:
-        cell = sorted(int(vertex) for vertex in G_classes[signature])
-        cell_size = len(cell)
+    for cell in eligible_classes:
+        orbit_counts=Counter(vertex_to_orbit[int(vertex)] for vertex in cell)
+        probabilities.append(sum(size**2 for size in orbit_counts.values())/len(cell)**2)
 
-        orbit_counts = Counter(vertex_to_orbit[vertex] for vertex in cell)
-        orbit_sizes = sorted(orbit_counts.values(),reverse=True)
-
-        probability = sum(size ** 2 for size in orbit_sizes) / cell_size ** 2
-
-        class_probabilities[signature] = {
-            "cell":cell,
-            "cell_size":cell_size,
-            "orbit_sizes":orbit_sizes,
-            "probability":probability,
-        }
-
-    overall_probability = sum(
-        information["probability"]
-        for information in class_probabilities.values()
-    ) / len(eligible_signatures)
-
-    return overall_probability
+    return sum(probabilities)/len(probabilities)
 
 def subdivide_every_edge(G,k):
     n = G.number_of_nodes()

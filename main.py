@@ -7,7 +7,7 @@ from src.utils.graph_utils import *
 
 
 def main():
-    graph_file=Path("graphs/TedSpence/26-10-3-4/Graph3")
+    graph_file=Path("graphs/TedSpence/35-18-9-9/Graph2323")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set fit_order/fit_start/fit_end
@@ -36,6 +36,13 @@ def main():
     #   3 settings -> G, L(G), L(L(G))
     #   etc.
     #
+    # distance_graph_order determines how many distance graphs are included:
+    #   1 -> G1 = G
+    #   2 -> G1, G2
+    #   3 -> G1, G2, G3
+    #   etc.
+    # In Gi, two vertices are adjacent if their distance in the original graph G is exactly i.
+
     subdivision_k=0
 
     graph_settings = [
@@ -53,7 +60,17 @@ def main():
             "name": "L(G)",
             "signature_mode": "full_matrix",
             "time_step": 0.1,
-            "end_time_multiplier": 100,
+            "end_time_multiplier": 20,
+            "fit_order": 6,
+            "fit_start": 1,
+            "fit_end": 4,
+            "resolutions": [1e10],
+        },
+        {
+            "name": "L(L(G))",
+            "signature_mode": "full_matrix",
+            "time_step": 1,
+            "end_time_multiplier": 15,
             "fit_order": 6,
             "fit_start": 1,
             "fit_end": 4,
@@ -61,13 +78,14 @@ def main():
         },
     ]
 
-    equivalence_computer=HeatKernelEquivalenceComputer(
+    equivalence_computer = HeatKernelEquivalenceComputer(
         graph_settings=graph_settings,
+        distance_graph_order=1,
         comparison_mode="fixed_resolution",
         bfs_depth=100,
         weird_norm_threshold=1e-5,
         zero_tolerance=1e-12,
-        use_ids=False,
+        use_ids=True,
     )
 
     original_graph=read_dimacs_or_simple_graph(graph_file)

@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 from scipy.stats import linregress
 from tqdm.auto import tqdm
-from src.utils.graph_utils import construct_next_line_graph
+from src.utils.graph_utils import construct_next_line_graph, construct_distance_graph
 
 from src.module.vertex_equivalence_interface import VertexEquivalenceInterface
 
@@ -12,11 +12,12 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
     def __init__(
             self,
             graph_settings,
+            distance_graph_order=1,
             comparison_mode="fixed_resolution",
             bfs_depth=6,
             weird_norm_threshold=1e-5,
             zero_tolerance=1e-12,
-            use_ids = False
+            use_ids=False,
     ):
         self.graph_settings = [dict(settings) for settings in graph_settings]
 
@@ -24,7 +25,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             settings["resolutions"] = np.atleast_1d(
                 np.asarray(settings["resolutions"], dtype=np.float64)
             )
-
+        self.distance_graph_order = distance_graph_order
         self.comparison_mode = comparison_mode
         self.bfs_depth = bfs_depth
         self.weird_norm_threshold = float(weird_norm_threshold)
@@ -296,68 +297,87 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         return root_signatures
 
-
     def compute_vertex_signatures(self, G, H=None):
         graphs = [G] if H is None else [G, H]
         vertices = [list(graph.nodes()) for graph in graphs]
         vertex_signatures = [{v: [] for v in vs} for vs in vertices]
-        current_graphs = graphs.copy()
-        memberships = [{v: {v} for v in vs} for vs in vertices]
         next_id = 0
 
-        for level, settings in enumerate(self.graph_settings):
-            signatures = [self._compute_signatures(graph, settings) for graph in current_graphs]
+        for distance in range(1, self.distance_graph_order + 1):
+            distance_graphs = graphs if distance == 1 else [
+                construct_distance_graph(graph, distance) for graph in graphs
+            ]
 
-            if self.comparison_mode == "fixed_resolution":
-                signatures = [self._truncate_signatures(sig, settings) for sig in signatures]
+            # Signatures for this Gi only.
+            current_vertex_signatures = [{v: [] for v in vs} for vs in vertices]
+            current_graphs = distance_graphs.copy()
+            memberships = [{v: {v} for v in vs} for vs in vertices]
 
-            if self.comparison_mode == "weird_norm":
-                if H is not None:
-                    G_ids, H_ids, next_id = self.assign_weird_norm_ids(signatures[0], signatures[1], next_id)
-                    values = [G_ids, H_ids]
+            for level, settings in enumerate(self.graph_settings):
+                signatures = [self._compute_signatures(graph, settings) for graph in current_graphs]
+
+                if self.comparison_mode == "fixed_resolution":
+                    signatures = [self._truncate_signatures(sig, settings) for sig in signatures]
+
+                if self.comparison_mode == "weird_norm":
+                    if H is not None:
+                        G_ids, H_ids, next_id = self.assign_weird_norm_ids(signatures[0], signatures[1], next_id)
+                        values = [G_ids, H_ids]
+                    else:
+                        G_ids, _, next_id = self.assign_weird_norm_ids(signatures[0], start_id=next_id)
+                        values = [G_ids]
+
+                elif self.use_ids:
+                    if H is not None:
+                        G_ids, H_ids, next_id = self.assign_shared_ids(signatures[0], signatures[1], next_id)
+                        values = [G_ids, H_ids]
+                    else:
+                        classes = self._group_by_equality(signatures[0])
+                        ids = {}
+
+                        for items in classes.values():
+                            for item in items:
+                                ids[item] = next_id
+                            next_id += 1
+
+                        values = [ids]
+
                 else:
-                    G_ids, _, next_id = self.assign_weird_norm_ids(signatures[0], start_id=next_id)
-                    values = [G_ids]
-            elif self.use_ids:
-                # means we are using fixed_resolutions and IDs
-                if H is not None:
-                    G_ids, H_ids, next_id = self.assign_shared_ids(signatures[0], signatures[1], next_id)
-                    values = [G_ids, H_ids]
-                else:
-                    classes = self._group_by_equality(signatures[0])
-                    ids = {}
-                    for items in classes.values():
-                        for item in items:
-                            ids[item] = next_id
-                        next_id += 1
-                    values = [ids]
+                    values = signatures
 
-            else:
-                # means we are using fixed_resolutions without IDs
-                values = signatures
-
-            # k is either 1 or 2 only.
-            for k in range(len(graphs)):
-                for v in vertices[k]:
-                    vertex_signatures[k][v].append(
-                        tuple(sorted(values[k][item] for item in memberships[k][v]))
-                    )
-
-            if self.use_ids or self.comparison_mode == "weird_norm":
-                del signatures, values
-
-            if level < len(self.graph_settings) - 1:
                 for k in range(len(graphs)):
-                    current_graphs[k], memberships[k] = construct_next_line_graph(current_graphs[k], memberships[k])
+                    for v in vertices[k]:
+                        current_vertex_signatures[k][v].append(
+                            tuple(sorted(values[k][item] for item in memberships[k][v]))
+                        )
 
+                if self.use_ids or self.comparison_mode == "weird_norm":
+                    del signatures, values
+
+                if level < len(self.graph_settings) - 1:
+                    for k in range(len(graphs)):
+                        current_graphs[k], memberships[k] = construct_next_line_graph(
+                            current_graphs[k], memberships[k]
+                        )
+
+            # Apply BFS independently on this Gi.
+            for k in range(len(graphs)):
+                gi_signatures = {
+                    v: tuple(signature)
+                    for v, signature in current_vertex_signatures[k].items()
+                }
+
+                if self.bfs_depth is not None:
+                    gi_signatures = self._signatures_with_bfs(distance_graphs[k], gi_signatures)
+
+                for v in vertices[k]:
+                    vertex_signatures[k][v].append(gi_signatures[v])
+
+        # Combine the results from G1, G2, ...
         results = []
 
         for k in range(len(graphs)):
-            sigs = {v: tuple(sig) for v, sig in vertex_signatures[k].items()}
-
-            if self.bfs_depth is not None:
-                sigs = self._signatures_with_bfs(graphs[k], sigs)
-
+            sigs = {v: tuple(signature) for v, signature in vertex_signatures[k].items()}
             classes = self._group_by_equality(sigs)
             results.append((classes, sigs))
 
