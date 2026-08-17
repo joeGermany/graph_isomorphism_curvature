@@ -3,7 +3,7 @@ import re
 threshold = 1e-8
 graphs = []
 
-with open("results/64-18-2-6_output_round1_NoL(L(G))AndNoG2.txt", "r") as f:
+with open("sts-15_output_round1_withoutL(L(G)).txt", "r") as f:
     for line in f:
         match = re.search(
             r"Graph(\d+):.*NMI with 1-WL:\s*([0-9.eE+-]+)",

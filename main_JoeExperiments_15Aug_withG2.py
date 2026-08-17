@@ -3,14 +3,16 @@ from sklearn.metrics import normalized_mutual_info_score
 import time
 
 from src.k_wl.kwl import run_kwl
-from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+from src.module.heat_kernel_equivalence_compute_with_dirac import HeatKernelEquivalenceComputer
 from src.utils.graph_utils import *
 
 
 def main():
-    graph_type = "64-18-2-6"
-    with open(f"{graph_type}_output_round2_withG2NoL(L(G)).txt", "w") as file:
-        for instance in [15, 16, 23, 24, 25, 26, 27, 29, 30, 34, 35, 39, 41, 42, 43, 45, 46, 47, 49, 50, 51, 53, 54, 55, 59, 62, 64, 66, 69, 72, 75, 76, 77, 78, 79, 81, 82, 83, 84, 85, 86, 87, 88, 93, 100, 101, 103, 107, 111, 114, 116, 117, 118, 121, 122, 124, 125, 126, 127, 128, 132, 141, 142, 143]:
+    graph_type = "order8"
+    with open(f"{graph_type}_output_round1_withG2.txt", "w") as file:
+        for instance in [4, 5, 6, 9, 10, 11, 12, 16, 17, 18, 23, 24, 25, 26, 27, 28, 29, 32, 33, 34, 35, 36, 38, 40, 41, 43, 44, 45, 48, 49, 50, 52, 53, 54, 55, 59, 60, 61, 62, 63, 67, 68, 69, 70, 71, 74, 75, 76, 80, 82, 84, 94, 95, 97, 98, 99, 101, 108, 111, 112, 113, 117, 120, 121, 122, 124, 125, 126, 127, 129, 140, 141, 142, 143, 145, 147, 148, 149, 150, 151]:
+            # [4, 5, 6, 9, 10, 11]:
+            # [15, 16, 23, 24, 25, 26, 27, 29, 30, 34, 35, 39, 41, 42, 43, 45, 46, 47, 49, 50, 51, 53, 54, 55, 59, 62, 64, 66, 69, 72, 75, 76, 77, 78, 79, 81, 82, 83, 84, 85, 86, 87, 88, 93, 100, 101, 103, 107, 111, 114, 116, 117, 118, 121, 122, 124, 125, 126, 127, 128, 132, 141, 142, 143]:
             # [17]:
             # range(1, 6761):
             # [15, 16, 29, 31, 34, 38, 41, 46, 47, 48, 50, 52, 73, 78]:
@@ -19,7 +21,7 @@ def main():
             # [1,3,5,12,13,15,17,21]:
             # [5306, 7185, 7360, 10133, 10266, 10408, 10411, 10413, 10414, 10415, 10879, 10904, 11064, 13011, 15310, 17286, 21091, 21092, 22646, 22656, 23842, 24208, 24247, 25142, 25385, 27748, 27755, 27778, 28522, 28524, 28525, 28594, 28629, 28860, 28861, 28867, 28882, 28883, 28884, 28885, 28886]:
             print(f"Graph{instance}")
-            graph_file=Path(f"graphs/TedSpence/{graph_type}/Graph{instance}")
+            graph_file=Path(f"graphs/latin_graphs_isotopy_nontrivial/{graph_type}/Graph{instance}")
 
             subdivision_k=0
 
@@ -125,7 +127,7 @@ def main():
             k_wl_parameter=1
 
             # unit_kwl_classes=run_kwl(original_graph,k_wl_parameter,output_dir="kwl_output/unit_coloring",)
-            heat_kwl_classes=run_kwl(original_graph,k_wl_parameter,initial_partition=classes,output_dir="kwl_output/heat_colored",)
+            heat_kwl_classes=run_kwl(original_graph,k_wl_parameter,initial_partition=classes_all,output_dir="kwl_output/heat_colored",)
 
             # unit_kwl_labels=partition_to_labels(unit_kwl_classes,original_n)
             heat_kwl_labels=partition_to_labels(heat_kwl_classes,original_n)

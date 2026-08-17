@@ -3,14 +3,14 @@ from sklearn.metrics import normalized_mutual_info_score
 import time
 
 from src.k_wl.kwl import run_kwl
-from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+from src.module.heat_kernel_equivalence_compute_with_dirac import HeatKernelEquivalenceComputer
 from src.utils.graph_utils import *
 
 
 def main():
-    graph_type = "35-18-9-9"
-    with open(f"{graph_type}_output_round1_withoutL(L(G)).txt", "w") as file:
-        for instance in range(2672, 3854):
+    graph_type = "order7"
+    with open(f"latin_graphs_isotopy_nontrivial_{graph_type}_output_round1_withoutL(L(G)).txt", "w") as file:
+        for instance in range(1, 150):
             # [17]:
             # range(1, 6761):
             # [15, 16, 29, 31, 34, 38, 41, 46, 47, 48, 50, 52, 73, 78]:
@@ -19,7 +19,7 @@ def main():
             # [1,3,5,12,13,15,17,21]:
             # [5306, 7185, 7360, 10133, 10266, 10408, 10411, 10413, 10414, 10415, 10879, 10904, 11064, 13011, 15310, 17286, 21091, 21092, 22646, 22656, 23842, 24208, 24247, 25142, 25385, 27748, 27755, 27778, 28522, 28524, 28525, 28594, 28629, 28860, 28861, 28867, 28882, 28883, 28884, 28885, 28886]:
             print(f"Graph{instance}")
-            graph_file=Path(f"graphs/TedSpence/{graph_type}/Graph{instance}")
+            graph_file=Path(f"graphs/latin_graphs_isotopy_nontrivial/{graph_type}/Graph{instance}")
 
             subdivision_k=0
 

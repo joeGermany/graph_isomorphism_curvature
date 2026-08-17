@@ -3,7 +3,7 @@ from sklearn.metrics import normalized_mutual_info_score
 import time
 
 from src.k_wl.kwl import run_kwl
-from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+from src.module.heat_kernel_equivalence_compute_with_dirac import HeatKernelEquivalenceComputer
 from src.utils.graph_utils import *
 
 

@@ -1,16 +1,70 @@
 from pathlib import Path
 from sklearn.metrics import normalized_mutual_info_score
 import time
+import math
 
 from src.k_wl.kwl import run_kwl
-from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+from src.module.heat_kernel_equivalence_compute_with_dirac import HeatKernelEquivalenceComputer
 from src.utils.graph_utils import *
 
+def latin_graph(encoded):
+    encoded = encoded.strip()
+
+    # n^2 entries -> Latin square of order n
+    n = math.isqrt(len(encoded))
+
+    if n * n != len(encoded):
+        raise ValueError(
+            f"Invalid encoding: length {len(encoded)} is not a perfect square."
+        )
+
+    # Decode Latin square
+    L = [
+        list(encoded[i*n:(i+1)*n])
+        for i in range(n)
+    ]
+
+    G = nx.Graph()
+
+    # Each cell is a vertex
+    vertices = [(i, j) for i in range(n) for j in range(n)]
+    G.add_nodes_from(vertices)
+
+    # Same row
+    for i in range(n):
+        for j1 in range(n):
+            for j2 in range(j1 + 1, n):
+                G.add_edge((i, j1), (i, j2))
+
+    # Same column
+    for j in range(n):
+        for i1 in range(n):
+            for i2 in range(i1 + 1, n):
+                G.add_edge((i1, j), (i2, j))
+
+    # Same symbol
+    for symbol in set(encoded):
+        cells = [
+            (i, j)
+            for i in range(n)
+            for j in range(n)
+            if L[i][j] == symbol
+        ]
+
+        for a in range(len(cells)):
+            for b in range(a + 1, len(cells)):
+                G.add_edge(cells[a], cells[b])
+
+    return G
 
 def main():
-    graph_type = "64-18-2-6"
-    with open(f"{graph_type}_output_round2_withL(L(G)).txt", "w") as file:
-        for instance in [25, 26, 27, 29, 30, 34, 35, 39, 41, 42, 43, 45, 46, 47, 49, 50, 51, 53, 54, 55, 59, 62, 64, 66, 69, 72, 75, 76, 77, 78, 79, 81, 82, 83, 84, 85, 86, 87, 88, 93, 100, 101, 103, 107, 111, 114, 116, 117, 118, 121, 122, 124, 125, 126, 127, 128, 132, 141, 142, 143]:
+    graph_type = "order8"
+    with open(f"latin_graphs_isotopy_nontrivial_{graph_type}_output_round2_withL(L(G)).txt", "w") as file:
+        # with open(f"graphs/{graph_type}_isotopy_nontrivial.txt", "r") as f_graph:
+        for instance in [37, 43, 62, 75, 77, 80]:
+            # [4, 5, 6, 9, 10, 11]:
+            # [5, 9, 19, 21, 59, 60, 64, 80, 82, 83, 84, 94, 101, 105, 130, 137, 144]:
+            # [54]:#[27, 29, 30, 34, 35, 39, 41, 42, 43, 45, 46, 47, 49, 50, 51, 53, 54, 55, 59, 62, 64, 66, 69, 72, 75, 76, 77, 78, 79, 81, 82, 83, 84, 85, 86, 87, 88, 93, 100, 101, 103, 107, 111, 114, 116, 117, 118, 121, 122, 124, 125, 126, 127, 128, 132, 141, 142, 143]:
             # [17]:
             # range(1, 6761):
             # [15, 16, 29, 31, 34, 38, 41, 46, 47, 48, 50, 52, 73, 78]:
@@ -19,7 +73,7 @@ def main():
             # [1,3,5,12,13,15,17,21]:
             # [5306, 7185, 7360, 10133, 10266, 10408, 10411, 10413, 10414, 10415, 10879, 10904, 11064, 13011, 15310, 17286, 21091, 21092, 22646, 22656, 23842, 24208, 24247, 25142, 25385, 27748, 27755, 27778, 28522, 28524, 28525, 28594, 28629, 28860, 28861, 28867, 28882, 28883, 28884, 28885, 28886]:
             print(f"Graph{instance}")
-            graph_file=Path(f"graphs/TedSpence/{graph_type}/Graph{instance}")
+            graph_file=Path(f"graphs/latin_graphs_isotopy_nontrivial/{graph_type}/Graph{instance}")
 
             subdivision_k=0
 
