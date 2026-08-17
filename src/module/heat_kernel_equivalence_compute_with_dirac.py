@@ -4,8 +4,9 @@ import networkx as nx
 import numpy as np
 from scipy.stats import linregress
 from tqdm.auto import tqdm
-from src.utils.graph_utils import construct_next_line_graph
+import matplotlib.pyplot as plt
 
+from src.utils.graph_utils import construct_next_line_graph
 from src.module.vertex_equivalence_interface import VertexEquivalenceInterface
 
 class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
@@ -50,14 +51,8 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         n = len(nodes)
         m = len(edges)
 
-        B = nx.incidence_matrix(
-            G,
-            nodelist=nodes,
-            edgelist=edges,
-            oriented=True
-        ).toarray()
+        B = nx.incidence_matrix(G, nodelist=nodes, edgelist=edges, oriented=True).toarray()
 
-        # Hermitian Dirac operator
         top = np.hstack((
             np.zeros((n, n)),
             B
@@ -122,8 +117,8 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         eigenvalues, eigenvectors = np.linalg.eigh(dirac)
 
         return {
-            "items": nodes,
-            # "edges": edges,
+            "nodes": nodes,
+            "edges": edges,
             "eigenvalues": eigenvalues,
             "eigenvectors": eigenvectors,
             "times": self._time_values(eigenvalues, settings),
@@ -461,17 +456,16 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         return results[0] if H is None else (*results[0], *results[1])
 
     def _dirac_full_matrix_values(self, G, dirac_spectral_data, settings):
-        nodes = dirac_spectral_data["items"]
+        nodes = dirac_spectral_data["nodes"]
+        edges = dirac_spectral_data["edges"]
         eigenvalues = dirac_spectral_data["eigenvalues"]
         eigenvectors = dirac_spectral_data["eigenvectors"]
         times = dirac_spectral_data["times"]
 
         n = len(nodes)
+        e = len(edges)
 
-        values = np.zeros(
-            (n, len(times), n),
-            dtype=np.complex128
-        )
+        values = np.zeros((n, len(times), n), dtype=np.complex128)
 
         item_to_index = {
             item: index
@@ -487,18 +481,16 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             for root in nodes
         ]
 
-        for time_index, time_value in tqdm(
-            enumerate(times),
-            total=len(times),
-            desc=f"{settings['name']} Dirac signatures",
-            unit="time",
-            dynamic_ncols=True
-        ):
+        to_plot = np.zeros((n+e, n+e, len(times)), dtype=np.complex128)
+        for time_index, time_value in tqdm(enumerate(times), total=len(times), desc=f"{settings['name']} Dirac signatures", unit="time", dynamic_ncols=True):
             # e^{itD}
-            dirac_kernel = (
-                eigenvectors
-                * np.exp(1j * eigenvalues * time_value)
-            ) @ eigenvectors.T
+            dirac_kernel = (eigenvectors * np.exp(1j * eigenvalues * time_value)) @ eigenvectors.T
+
+            # to_plot[0, :, time_index] = dirac_kernel[1]
+            # to_plot[1, :, time_index] = dirac_kernel[2]
+            # to_plot[2, :, time_index] = dirac_kernel[3]
+
+            to_plot[:, :, time_index] = dirac_kernel
 
             # Keep ONLY the vertex-vertex block.
             vertex_kernel = dirac_kernel[:n, :n]
@@ -517,7 +509,22 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
                     for entry in ordered_values
                 ]
 
-        return values.reshape(n, -1)
+        for i in range(n+e):
+            plt.plot(np.real(to_plot[0, i, :]), color='b', linestyle='--', linewidth=2)
+            plt.plot(np.real(to_plot[1, i, :]), color='r', linestyle=':', linewidth=4)
+            plt.plot(np.real(to_plot[2, i, :]), color='y', linestyle=':', linewidth=3)
+
+        plt.show()
+
+        for i in range(n+e):
+            plt.plot(np.imag(to_plot[0, i, :]), color='b', linestyle='--', linewidth=2)
+            plt.plot(np.imag(to_plot[1, i, :]), color='r', linestyle=':', linewidth=4)
+            plt.plot(np.imag(to_plot[2, i, :]), color='y', linestyle=':', linewidth=3)
+
+        plt.show()
+
+        return to_plot
+        # return values.reshape(n, -1)
     
     def _dirac_compute_signatures(self, G, settings):
         spectral_data = self._dirac_spectral_data(G, settings)
@@ -526,7 +533,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         return {
             item: tuple(values[index].ravel())
-            for index, item in enumerate(spectral_data["items"])
+            for index, item in enumerate(spectral_data["nodes"])
         }
     
     def compute_vertex_signatures_with_dirac(self, G, H=None):

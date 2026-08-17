@@ -2,12 +2,12 @@ from pathlib import Path
 from sklearn.metrics import normalized_mutual_info_score
 
 from src.k_wl.kwl import run_kwl
-from src.module.heat_kernel_equivalence_compute_with_dirac import HeatKernelEquivalenceComputer
+from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
 from src.utils.graph_utils import *
 
 
 def main():
-    graph_file=Path("graphs/TedSpence/35-18-9-9/Graph2323")
+    graph_file=Path("graphs/35-16-6-8/Graph625")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set fit_order/fit_start/fit_end
@@ -66,16 +66,16 @@ def main():
             "fit_end": 4,
             "resolutions": [1e10],
         },
-        {
-            "name": "L(L(G))",
-            "signature_mode": "full_matrix",
-            "time_step": 1,
-            "end_time_multiplier": 15,
-            "fit_order": 6,
-            "fit_start": 1,
-            "fit_end": 4,
-            "resolutions": [1e10],
-        },
+        # {
+        #     "name": "L(L(G))",
+        #     "signature_mode": "full_matrix",
+        #     "time_step": 1,
+        #     "end_time_multiplier": 15,
+        #     "fit_order": 6,
+        #     "fit_start": 1,
+        #     "fit_end": 4,
+        #     "resolutions": [1e10],
+        # },
     ]
 
     equivalence_computer = HeatKernelEquivalenceComputer(
@@ -102,6 +102,9 @@ def main():
 
     class_labels=partition_to_labels(classes,original_n)
     orbit_labels=partition_to_labels(true_orbits,original_n)
+
+    print("classes: ", class_labels)
+    print("orbits: ", orbit_labels)
 
     nmi=normalized_mutual_info_score(class_labels,orbit_labels)
     probability=compute_overall_same_orbit_probability(graph,classes,original_n)
