@@ -86,9 +86,6 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
     def _dirac_time_values(self, eigenvalues, settings):
         tol = 1e-10
 
-        # Dirac spectrum is symmetric: ±lambda.
-        # We only need the magnitudes of the nonzero eigenvalues
-        # to determine the characteristic time scales.
         nonzero_magnitudes = np.abs(
             eigenvalues[np.abs(eigenvalues) > tol]
         )
@@ -125,8 +122,8 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         eigenvalues, eigenvectors = np.linalg.eigh(dirac)
 
         return {
-            "nodes": nodes,
-            "edges": edges,
+            "items": nodes,
+            # "edges": edges,
             "eigenvalues": eigenvalues,
             "eigenvectors": eigenvectors,
             "times": self._time_values(eigenvalues, settings),

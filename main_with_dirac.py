@@ -2,7 +2,7 @@ from pathlib import Path
 from sklearn.metrics import normalized_mutual_info_score
 
 from src.k_wl.kwl import run_kwl
-from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+from src.module.heat_kernel_equivalence_compute_with_dirac import HeatKernelEquivalenceComputer
 from src.utils.graph_utils import *
 
 
@@ -52,8 +52,8 @@ def main():
         {
             "name": "L(G)",
             "signature_mode": "full_matrix",
-            "time_step": 0.1,
-            "end_time_multiplier": 100,
+            "time_step": 1,
+            "end_time_multiplier": 15,
             "fit_order": 6,
             "fit_start": 1,
             "fit_end": 4,
