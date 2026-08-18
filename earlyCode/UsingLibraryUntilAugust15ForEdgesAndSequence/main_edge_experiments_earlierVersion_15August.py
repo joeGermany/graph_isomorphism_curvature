@@ -9,7 +9,7 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from src.k_wl.kwl import run_kwl
-from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+from src.module.heat_kernel_equivalence_compute_with_dirac import HeatKernelEquivalenceComputer
 from src.utils.graph_utils import *
 
 import numpy as np

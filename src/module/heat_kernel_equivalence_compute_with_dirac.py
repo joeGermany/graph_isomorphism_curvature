@@ -509,19 +509,19 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
                     for entry in ordered_values
                 ]
 
-        for i in range(n+e):
-            plt.plot(np.real(to_plot[0, i, :]), color='b', linestyle='--', linewidth=2)
-            plt.plot(np.real(to_plot[1, i, :]), color='r', linestyle=':', linewidth=4)
-            plt.plot(np.real(to_plot[2, i, :]), color='y', linestyle=':', linewidth=3)
+        # for i in range(n+e):
+        #     plt.plot(np.real(to_plot[0, i, :]), color='b', linestyle='--', linewidth=2)
+        #     plt.plot(np.real(to_plot[1, i, :]), color='r', linestyle=':', linewidth=4)
+        #     plt.plot(np.real(to_plot[2, i, :]), color='y', linestyle=':', linewidth=3)
 
-        plt.show()
+        # plt.show()
 
-        for i in range(n+e):
-            plt.plot(np.imag(to_plot[0, i, :]), color='b', linestyle='--', linewidth=2)
-            plt.plot(np.imag(to_plot[1, i, :]), color='r', linestyle=':', linewidth=4)
-            plt.plot(np.imag(to_plot[2, i, :]), color='y', linestyle=':', linewidth=3)
+        # for i in range(n+e):
+        #     plt.plot(np.imag(to_plot[0, i, :]), color='b', linestyle='--', linewidth=2)
+        #     plt.plot(np.imag(to_plot[1, i, :]), color='r', linestyle=':', linewidth=4)
+        #     plt.plot(np.imag(to_plot[2, i, :]), color='y', linestyle=':', linewidth=3)
 
-        plt.show()
+        # plt.show()
 
         return to_plot
         # return values.reshape(n, -1)

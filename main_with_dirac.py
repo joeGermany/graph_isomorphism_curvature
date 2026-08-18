@@ -8,7 +8,8 @@ from src.utils.graph_utils import *
 
 
 def main():
-    graph_file=Path("graphs/35-16-6-8/Graph625")
+    # graph_file=Path("graphs/35-16-6-8/Graph625")
+    graph_file=Path("graphs/TedSpence/36-14-4-6/Graph48")
 
     subdivision_k=0
 
@@ -17,7 +18,7 @@ def main():
             "name": "G",
             "signature_mode": "full_matrix",
             "time_step": 1,
-            "end_time_multiplier": 15,
+            "end_time_multiplier": 7,
             "fit_order": 6,
             "fit_start": 1,
             "fit_end": 6,
@@ -56,6 +57,17 @@ def main():
 
     graph_original=read_dimacs_or_simple_graph(graph_file)
 
+    # To get G2:
+    # adjacency_2 = np.zeros((graph_original.number_of_nodes(), graph_original.number_of_nodes()))
+    # for i in range(graph_original.number_of_nodes()):
+    #     for target, distance in nx.single_source_shortest_path_length(graph_original, i, 2).items():
+    #         if distance == 2 and target != i:
+    #             adjacency_2[i][target] = 1
+    #             adjacency_2[target][i] = 1
+
+    # graph_original = nx.from_numpy_array(adjacency_2)
+
+
     nodes = list(graph_original.nodes())
     edges = list(graph_original.edges())
 
@@ -75,15 +87,6 @@ def main():
 
     original_n=graph.number_of_nodes()
 
-    # adjacency_2 = np.zeros((original_n, original_n))
-    # for i in range(original_n):
-    #     for target, distance in nx.single_source_shortest_path_length(graph, i, 2).items():
-    #         if distance == 2 and target != i:
-    #             adjacency_2[i][target] = 1
-    #             adjacency_2[target][i] = 1
-
-    # graph_2 = nx.from_numpy_array(adjacency_2)
-
     true_orbits=get_true_orbits_restricted(graph_original,graph_original.number_of_nodes())
     orbit_labels=partition_to_labels(true_orbits,graph_original.number_of_nodes())
 
@@ -102,15 +105,8 @@ def main():
     # print(f"NMI: {nmi:.4f}")
 
     def complex_signature(values, decimals=6):
-        return tuple(
-            sorted(
-                (
-                    round(z.real, decimals),
-                    round(z.imag, decimals)
-                )
-                for z in values
-            )
-        )
+        return tuple(sorted((round(abs(z.real), decimals), round(abs(z.imag), decimals)) for z in values))
+        # return tuple(sorted(round(abs(z), decimals) for z in values))
 
     settings = equivalence_computer.graph_settings[0]
     dirac_spectral_data = equivalence_computer._dirac_spectral_data(graph, settings)
@@ -127,35 +123,74 @@ def main():
 
     vertex_vertex_matrix = matrix[:n, :n]
     vertex_edge_matrix = matrix[:n, n:]
+    edge_edge_matrix = matrix[n:, n:]
+
+    raw_sigs = defaultdict(list)
+    raw_sigs_edges = defaultdict(list)
+
+    for time_index in tqdm(range(len(times))):
+        for root in range(n):
+            raw_sigs[root].append(complex_signature(vertex_vertex_matrix[root, :, time_index]))
+            raw_sigs[root].append(complex_signature(vertex_edge_matrix[root, :, time_index]))
+
+    for time_index in tqdm(range(len(times))):
+        for root in range(e):
+            raw_sigs_edges[root].append(complex_signature(vertex_edge_matrix[:, root, time_index]))
+            raw_sigs_edges[root].append(complex_signature(edge_edge_matrix[:, root, time_index]))
+
+
+    all_signatures = set()
+
+    for root in tqdm(range(n)):
+        all_signatures.update(raw_sigs[root])
+
+    for root in tqdm(range(e)):
+        all_signatures.update(raw_sigs_edges[root])
+
+    signature_to_id = {
+        sig: i
+        for i, sig in enumerate(sorted(all_signatures))
+    }
 
     sigs = defaultdict(list)
     sigs_edges = defaultdict(list)
 
-    for time_index in range(len(times)):
-        for root in range(n):
-            sigs[root].append(complex_signature(vertex_vertex_matrix[root, :, time_index]))
+    for root in tqdm(range(n)):
+        sigs[root] = [signature_to_id[sig] for sig in raw_sigs[root]]
 
-    for time_index in range(len(times)):
-        for root in range(e):
-            sigs_edges[root].append(complex_signature(vertex_edge_matrix[:, root, time_index]))
+    for root in tqdm(range(e)):
+        sigs_edges[root] = [signature_to_id[sig] for sig in raw_sigs_edges[root]]
 
     edge_incidences = defaultdict(list)
-    for root in range(n):
+    for root in tqdm(range(n)):
         for i, (u,v) in enumerate(edges):
             if u == root or v == root:
                 edge_incidences[root].append(i)
 
-    for root in range(n):
+    for root in tqdm(range(n)):
         edge_sigs_to_append = []
         for edge in edge_incidences[root]:
             edge_sigs_to_append.append(tuple(sigs_edges[edge]))
 
         sigs[root].append(tuple(sorted(edge_sigs_to_append)))
+        sigs[root] = tuple(sigs[root])
 
+    sigs_compiled = {}
+    for root in tqdm(range(n)):
+        by_distance = defaultdict(list)
+        distances = nx.single_source_shortest_path_length(graph, root)
+
+        for target, distance in distances.items():
+            by_distance[distance].append(sigs[target])
+
+        # sigs_compiled[root] = [sorted(by_distance[d]) for d in sorted(by_distance)]
+        sigs_compiled[root] = tuple(tuple(sorted(by_distance[d])) for d in sorted(by_distance))
+
+    
     equivalence_classes = defaultdict(list)
 
-    for root in range(n):
-        equivalence_classes[tuple(sigs[root])].append(root)
+    for root in tqdm(range(n)):
+        equivalence_classes[tuple(sigs_compiled[root])].append(root)
 
     # print(equivalence_classes)
     for a,b in equivalence_classes.items():
@@ -165,7 +200,7 @@ def main():
     print("Edge classes: ", class_labels)
 
     final_node_sigs = {}
-    for node in range(graph_original.number_of_nodes()):
+    for node in tqdm(range(graph_original.number_of_nodes())):
         neighbors_labels = []
         for neighboring_edge in edge_incidences_original[node]:
             neighbors_labels.append(class_labels[neighboring_edge])
@@ -176,12 +211,15 @@ def main():
 
     equivalence_classes_re = defaultdict(list)
 
-    for node in range(graph_original.number_of_nodes()):
+    for node in tqdm(range(graph_original.number_of_nodes())):
         equivalence_classes_re[tuple(final_node_sigs[node])].append(node)
 
     class_labels_re = partition_to_labels(equivalence_classes_re, graph_original.number_of_nodes())
     print("classes: ", class_labels_re)
     print("orbits: ", orbit_labels)
+
+    nmi = normalized_mutual_info_score(orbit_labels, class_labels_re)
+    print(f"NMI: {nmi}")
 
     k_wl_parameter=1
 
@@ -193,7 +231,7 @@ def main():
 
     print(f"{k_wl_parameter}-WL heat_colored: NMI = {heat_kwl_nmi:.4f}, classes = {len(heat_kwl_classes)}, matching classes = {heat_matches}")
 
-    
+
 
     # item_to_index = {
     #     item: index
