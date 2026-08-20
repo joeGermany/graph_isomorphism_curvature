@@ -8,3 +8,5 @@ lib/
 **/__pycache__/
 *.py[cod]
 graphs/sts/sts-19_1M_sample_decompressed
+
+main_moe.py
