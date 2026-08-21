@@ -42,6 +42,22 @@ def construct_next_line_graph(current_graph,current_membership):
 
     return next_graph,next_membership
 
+
+def construct_transformed_graph(G,transformations):
+    current_graph=G
+    membership={v:{v} for v in G.nodes()}
+
+    for operation,value in reversed(transformations):
+        if operation=="distance":
+            current_graph=construct_distance_graph(current_graph,value,)
+        elif operation=="line":
+            for _ in range(value):
+                current_graph,membership=construct_next_line_graph(current_graph,membership,)
+        else:
+            raise ValueError(f"Unknown graph transformation: {operation}")
+
+    return current_graph,membership
+
 def randomly_permute_graph(G,seed=None):
     rng=random.Random(seed)
 

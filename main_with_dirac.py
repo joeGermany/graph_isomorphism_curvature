@@ -8,8 +8,8 @@ from src.utils.graph_utils import *
 
 
 def main():
-    # graph_file=Path("graphs/35-16-6-8/Graph625")
-    graph_file=Path("graphs/TedSpence/36-14-4-6/Graph48")
+    graph_file=Path("graphs/35-16-6-8/Graph625")
+    # graph_file=Path("graphs/TedSpence/36-14-4-6/Graph48")
 
     subdivision_k=0
 

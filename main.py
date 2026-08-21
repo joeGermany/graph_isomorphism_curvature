@@ -7,7 +7,7 @@ from src.utils.graph_utils import *
 
 
 def main():
-    graph_file=Path("graphs/35-16-6-8/Graph625")
+    graph_file=Path("graphs/35-16-6-8/Graph1024")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set fit_order/fit_start/fit_end
@@ -30,44 +30,52 @@ def main():
     # end_time_multiplier controls the upper end of the sampled time interval:
     #   1 -> end_time = 1 / lambda_min
     #
-    # graph_settings determines which line-graph levels are included:
-    #   1 setting  -> G
-    #   2 settings -> G, L(G)
-    #   3 settings -> G, L(G), L(L(G))
-    #   etc.
-    #
-    # distance_graph_order determines how many distance graphs are included:
-    #   1 -> G1 = G
-    #   2 -> G1, G2
-    #   3 -> G1, G2, G3
-    #   etc.
-    # In Gi, two vertices are adjacent if their distance in the original graph G is exactly i.
+    # transformations:
+    #   []                              -> G
+    #   [("line",1)]                    -> L(G)
+    #   [("distance",2)]                -> G2
+    #   [("line",1),("distance",2)]     -> L(G2)
+    #   [("line",2),("distance",2)]     -> L(L(G2))
+    #   Transformations are written as the final expression is read.
+    # operators:
+    #   "laplacian"   -> heat-kernel signatures
+    #   "dirac"       -> Dirac signatures
+    #   "topological" -> structural/topological measures
+    #   [] -> skip signature computation for this graph
 
     subdivision_k=0
 
     graph_settings = [
         {
             "name": "G",
+            "transformations": [],
+            "operators": ["topological","dirac","laplacian"],
             "signature_mode": "full_matrix",
-            "time_step": 0.1,
-            "end_time_multiplier": 100,
+            "time_step": 1,
+            "end_time_multiplier": 7,
             "fit_order": 6,
             "fit_start": 1,
             "fit_end": 6,
             "resolutions": [1e10],
+            "dirac_decimals": 6,
         },
         {
-            "name": "L(G)",
+            "name":"L(G)",
+            "transformations":[("line",1)],
+            "operators": ["laplacian"],
             "signature_mode": "full_matrix",
-            "time_step": 0.1,
-            "end_time_multiplier": 20,
+            "time_step": 1,
+            "end_time_multiplier": 7,
             "fit_order": 6,
             "fit_start": 1,
             "fit_end": 4,
             "resolutions": [1e10],
+            "dirac_decimals": 6,
         },
         # {
-        #     "name": "L(L(G))",
+        #     "name":"L(L(G2))",
+        #     "transformations":[("line",2),("distance",2)],
+        #     "operators": ["laplacian"],
         #     "signature_mode": "full_matrix",
         #     "time_step": 1,
         #     "end_time_multiplier": 15,
@@ -75,6 +83,7 @@ def main():
         #     "fit_start": 1,
         #     "fit_end": 4,
         #     "resolutions": [1e10],
+        #     "dirac_decimals":6,
         # },
     ]
 

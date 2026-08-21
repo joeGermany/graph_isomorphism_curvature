@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 from scipy.stats import linregress
 from tqdm.auto import tqdm
-from src.utils.graph_utils import construct_next_line_graph, construct_distance_graph
+from src.utils.graph_utils import construct_transformed_graph
 
 from src.module.vertex_equivalence_interface import VertexEquivalenceInterface
 
@@ -38,11 +38,6 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         values = values[values > self.zero_tolerance]
         return np.unique(np.sort(np.round(values, 12)))
 
-    def _laplacian_data(self, G):
-        nodes = list(G.nodes())
-        laplacian = nx.laplacian_matrix(G, nodelist=nodes).toarray()
-
-        return np.asarray(laplacian, dtype=np.float64), nodes
 
     def _time_values(self, eigenvalues, settings):
         positive_eigenvalues = self._positive_eigenvalues(eigenvalues)
@@ -55,16 +50,37 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         return np.arange(start_time, end_time, settings["time_step"])
 
-    def _spectral_data(self, G, settings):
-        laplacian, items = self._laplacian_data(G)
-        eigenvalues, eigenvectors = np.linalg.eigh(laplacian)
+    def _spectral_data(self, G, settings, operator):
+        nodes = list(G.nodes())
+        data = {"items": nodes}
 
-        return {
-            "items": items,
+        if operator == "laplacian":
+            matrix = nx.laplacian_matrix(G, nodelist=nodes).toarray()
+
+        elif operator == "dirac":
+            edges = list(G.edges())
+            B = nx.incidence_matrix(G, nodelist=nodes, edgelist=edges, oriented=True).toarray()
+            n = len(nodes)
+            m = len(edges)
+
+            matrix = np.block([
+                [np.zeros((n, n)), B],
+                [B.T, np.zeros((m, m))]
+            ])
+
+            data["edges"] = edges
+        else:
+            raise ValueError(f"Unknown operator received: {repr(operator)}")
+
+        eigenvalues, eigenvectors = np.linalg.eigh(matrix)
+
+        data.update({
             "eigenvalues": eigenvalues,
             "eigenvectors": eigenvectors,
             "times": self._time_values(eigenvalues, settings),
-        }
+        })
+
+        return data
 
     def _dimension(self, eigenvalues):
         values = self._positive_eigenvalues(eigenvalues)
@@ -132,9 +148,89 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
         return values.reshape(size, -1)
 
+    def _topological_signatures(self, G):
+        nodes = list(G.nodes())
 
-    def _compute_signatures(self, G, settings):
-        spectral_data = self._spectral_data(G, settings)
+        clustering = nx.clustering(G)
+        degree = dict(G.degree())
+        average_neighbor_degree = nx.average_neighbor_degree(G)
+        betweenness = nx.betweenness_centrality(G)
+        communicability = nx.communicability(G)
+
+        return {
+            v: (
+                   clustering[v],
+                   degree[v],
+                   average_neighbor_degree[v],
+                   betweenness[v],
+               ) + tuple(sorted(communicability[v].values()))
+            for v in nodes
+        }
+
+    def _dirac_signatures(self, G, spectral_data, settings):
+        nodes = spectral_data["items"]
+        edges = spectral_data["edges"]
+        eigenvalues = spectral_data["eigenvalues"]
+        eigenvectors = spectral_data["eigenvectors"]
+        times = spectral_data["times"]
+
+        n = len(nodes)
+        m = len(edges)
+        decimals = settings.get("dirac_decimals", 6)
+
+        def complex_signature(values):
+            return tuple(sorted(
+                (round(abs(z.real), decimals), round(abs(z.imag), decimals))
+                for z in values
+            ))
+
+        node_signatures = {v: [] for v in nodes}
+        edge_signatures = {i: [] for i in range(m)}
+
+        for time_value in tqdm(times,total=len(times),desc=f"{settings['name']} Dirac signatures",unit="time",dynamic_ncols=True,):
+            kernel = (eigenvectors * np.exp(1j * eigenvalues * time_value)) @ eigenvectors.T
+
+            vertex_vertex = kernel[:n, :n]
+            vertex_edge = kernel[:n, n:]
+            edge_edge = kernel[n:, n:]
+
+            for i, v in enumerate(nodes):
+                node_signatures[v].append(complex_signature(vertex_vertex[i, :]))
+                node_signatures[v].append(complex_signature(vertex_edge[i, :]))
+
+            for i in range(m):
+                edge_signatures[i].append(complex_signature(vertex_edge[:, i]))
+                edge_signatures[i].append(complex_signature(edge_edge[i, :]))
+
+        incidences = {v: [] for v in nodes}
+
+        for i, (u, v) in enumerate(edges):
+            incidences[u].append(i)
+            incidences[v].append(i)
+
+        for v in nodes:
+            incident_edge_signatures = [
+                tuple(edge_signatures[i])
+                for i in incidences[v]
+            ]
+
+            node_signatures[v].append(
+                tuple(sorted(incident_edge_signatures))
+            )
+
+            node_signatures[v] = tuple(node_signatures[v])
+
+        return node_signatures
+
+
+    def _compute_signatures(self, G, settings, operator):
+        if operator == "topological":
+            return self._topological_signatures(G)
+
+        spectral_data = self._spectral_data(G, settings, operator)
+        if operator == "dirac":
+            return self._dirac_signatures(G, spectral_data, settings)
+
         signature_mode = settings["signature_mode"]
 
         if signature_mode == "coefficients":
@@ -303,34 +399,33 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         vertex_signatures = [{v: [] for v in vs} for vs in vertices]
         next_id = 0
 
-        for distance in range(1, self.distance_graph_order + 1):
-            distance_graphs = graphs if distance == 1 else [
-                construct_distance_graph(graph, distance) for graph in graphs
-            ]
+        for settings in self.graph_settings:
+            current_graphs = []
+            memberships = []
 
-            # Signatures for this Gi only.
-            current_vertex_signatures = [{v: [] for v in vs} for vs in vertices]
-            current_graphs = distance_graphs.copy()
-            memberships = [{v: {v} for v in vs} for vs in vertices]
+            for graph in graphs:
+                current_graph, membership = construct_transformed_graph(graph,settings["transformations"],)
+                current_graphs.append(current_graph)
+                memberships.append(membership)
 
-            for level, settings in enumerate(self.graph_settings):
-                signatures = [self._compute_signatures(graph, settings) for graph in current_graphs]
-
-                if self.comparison_mode == "fixed_resolution":
+            for operator in settings["operators"]:
+                signatures = [self._compute_signatures(graph, settings, operator) for graph in current_graphs]
+                if (self.comparison_mode == "fixed_resolution" and operator in ["laplacian", "topological"]):
                     signatures = [self._truncate_signatures(sig, settings) for sig in signatures]
 
                 if self.comparison_mode == "weird_norm":
                     if H is not None:
-                        G_ids, H_ids, next_id = self.assign_weird_norm_ids(signatures[0], signatures[1], next_id)
+                        G_ids, H_ids, next_id = self.assign_weird_norm_ids(signatures[0],signatures[1],next_id,)
                         values = [G_ids, H_ids]
                     else:
-                        G_ids, _, next_id = self.assign_weird_norm_ids(signatures[0], start_id=next_id)
+                        G_ids, _, next_id = self.assign_weird_norm_ids(signatures[0],start_id=next_id,)
                         values = [G_ids]
 
                 elif self.use_ids:
                     if H is not None:
-                        G_ids, H_ids, next_id = self.assign_shared_ids(signatures[0], signatures[1], next_id)
+                        G_ids, H_ids, next_id = self.assign_shared_ids(signatures[0],signatures[1],next_id,)
                         values = [G_ids, H_ids]
+
                     else:
                         classes = self._group_by_equality(signatures[0])
                         ids = {}
@@ -347,37 +442,20 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
 
                 for k in range(len(graphs)):
                     for v in vertices[k]:
-                        current_vertex_signatures[k][v].append(
-                            tuple(sorted(values[k][item] for item in memberships[k][v]))
-                        )
+                        vertex_signatures[k][v].append(tuple(sorted(values[k][item]
+                                                                    for item in memberships[k][v])))
 
                 if self.use_ids or self.comparison_mode == "weird_norm":
                     del signatures, values
 
-                if level < len(self.graph_settings) - 1:
-                    for k in range(len(graphs)):
-                        current_graphs[k], memberships[k] = construct_next_line_graph(
-                            current_graphs[k], memberships[k]
-                        )
-
-            # Apply BFS independently on this Gi.
-            for k in range(len(graphs)):
-                gi_signatures = {
-                    v: tuple(signature)
-                    for v, signature in current_vertex_signatures[k].items()
-                }
-
-                if self.bfs_depth is not None:
-                    gi_signatures = self._signatures_with_bfs(distance_graphs[k], gi_signatures)
-
-                for v in vertices[k]:
-                    vertex_signatures[k][v].append(gi_signatures[v])
-
-        # Combine the results from G1, G2, ...
         results = []
 
         for k in range(len(graphs)):
             sigs = {v: tuple(signature) for v, signature in vertex_signatures[k].items()}
+
+            if self.bfs_depth is not None:
+                sigs = self._signatures_with_bfs(graphs[k],sigs,)
+
             classes = self._group_by_equality(sigs)
             results.append((classes, sigs))
 
