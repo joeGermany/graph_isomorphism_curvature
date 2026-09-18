@@ -121,7 +121,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         if operator == "laplacian":
             matrix = nx.laplacian_matrix(G, nodelist=nodes).toarray()
 
-        elif operator == "dirac":
+        elif operator == "dirac" or operator == "dirac_correlation":
             B = nx.incidence_matrix(G, nodelist=nodes, edgelist=edges, oriented=True).toarray()
             matrix = np.block([
                 [np.zeros((n, n)), B],
@@ -507,6 +507,81 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         return node_signatures
 
 
+    def _dirac_correlation_signatures(self, G, spectral_data, settings):
+        nodes = spectral_data["items"]
+        edges = spectral_data["edges"]
+        eigenvalues = spectral_data["eigenvalues"]
+        eigenvectors = spectral_data["eigenvectors"]
+        times = spectral_data["times"]
+
+        n = len(nodes)
+        m = len(edges)
+        dimension = n + m
+        decimals = settings.get("dirac_decimals", 6)
+        use_mp = self._use_mpmath(settings)
+
+        def complex_signature(values):
+            if use_mp:
+                scale = mp.mpf(10) ** decimals
+                return tuple(sorted(
+                    (mp.nint(abs(mp.re(z)) * scale) / scale,
+                        mp.nint(abs(mp.im(z)) * scale) / scale)
+                    for z in values
+                ))
+
+            pairs = np.column_stack((
+                np.round(np.abs(values.real), decimals),
+                np.round(np.abs(values.imag), decimals)
+            ))
+
+            pairs = pairs[np.lexsort((pairs[:, 1], pairs[:, 0]))]
+
+            return tuple(map(tuple, pairs))
+
+        node_signatures = {v: [] for v in nodes}
+        edge_signatures = {i: [] for i in range(m)}
+
+        B = nx.incidence_matrix(G, nodelist=nodes, edgelist=edges, oriented=True).toarray()
+        mass = settings.get("dirac_mass", 1.0)
+
+        matrix = np.block([
+            [mass * np.eye(n), B],
+            [B.T, -mass * np.eye(m)]
+        ])
+
+        kernel = np.linalg.inv(matrix)
+        del matrix
+
+        for i, v in enumerate(nodes):
+            vv_values = kernel[i, :n]
+            ve_values = kernel[i, n:]
+
+            node_signatures[v].append(complex_signature(vv_values))
+            node_signatures[v].append(complex_signature(ve_values))
+
+        for i in range(m):
+            ve_values = kernel[:n, n + i]
+            ee_values = kernel[n + i, n:]
+
+            edge_signatures[i].append(complex_signature(ve_values))
+            edge_signatures[i].append(complex_signature(ee_values))
+
+        del kernel
+
+        incidences = {v: [] for v in nodes}
+
+        for i, (u, v) in enumerate(edges):
+            incidences[u].append(i)
+            incidences[v].append(i)
+
+        for v in nodes:
+            incident_edge_signatures = [tuple(edge_signatures[i]) for i in incidences[v]]
+            node_signatures[v].append(tuple(sorted(incident_edge_signatures)))
+            node_signatures[v] = tuple(node_signatures[v])
+
+        return node_signatures
+
+
     def _compute_signatures(self, G, settings, operator):
         if operator == "correlation":
             values = self._full_correlation_values(G, settings)
@@ -519,6 +594,11 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         spectral_data = self._spectral_data(G, settings, operator)
         if operator == "dirac":
             return self._dirac_signatures(G, spectral_data, settings)
+
+        if operator == "dirac_correlation":
+            values = self._dirac_correlation_signatures(G, spectral_data, settings)
+            items = list(G.nodes())
+            return {item: values[index] for index, item in enumerate(items)}
 
         signature_mode = settings["signature_mode"]
 
