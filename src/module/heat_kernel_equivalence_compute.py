@@ -302,15 +302,49 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             yield {item: heat_matrix[index] for index, item in enumerate(items)}
 
     def _full_matrix_optimized(self, graphs, settings, start_id=0):
-
-        spectral_data = [self._spectral_data(graph, settings, "laplacian") for graph in graphs]
+        spectral_data = [self._spectral_data(g, settings, "laplacian") for g in graphs]
+        generators = [
+            self._full_matrix_optimized_helper(g, d, settings)
+            for g, d in zip(graphs, spectral_data)
+        ]
         time_instances = len(spectral_data[0]["times"])
-        generators = [self._full_matrix_optimized_helper(graph, data, settings) for graph, data in zip(graphs, spectral_data)]
 
-        classes = [[(k, item) for k, data in enumerate(spectral_data) for item in data["items"]]]
+        if self.use_stable_ids:
+            hashers = [
+                {item: hashlib.blake2b(digest_size=32) for item in d["items"]}
+                for d in spectral_data
+            ]
+
+            for _ in range(time_instances):
+                signatures = [next(gen) for gen in generators]
+
+                for k, sigs in enumerate(signatures):
+                    for item, sig in sigs.items():
+                        arr = np.ascontiguousarray(sig.copy())
+                        arr[arr == 0] = 0.0
+                        hashers[k][item].update(arr.dtype.str.encode())
+                        hashers[k][item].update(
+                            np.asarray(arr.shape, dtype=np.int64).tobytes()
+                        )
+                        hashers[k][item].update(memoryview(arr).cast("B"))
+
+            ids = [
+                {
+                    item: int.from_bytes(h.digest(), "big")
+                    for item, h in graph_hashers.items()
+                }
+                for graph_hashers in hashers
+            ]
+            return ids, start_id
+
+        classes = [[
+            (k, item)
+            for k, data in enumerate(spectral_data)
+            for item in data["items"]
+        ]]
 
         for _ in range(time_instances):
-            signatures = [next(generator) for generator in generators]
+            signatures = [next(gen) for gen in generators]
             new_classes = []
 
             for current_class in classes:
@@ -328,10 +362,8 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
                 new_classes.extend(splits.values())
 
             classes = new_classes
-            del signatures
 
         ids = [{} for _ in graphs]
-
         for current_class in classes:
             for k, item in current_class:
                 ids[k][item] = start_id
@@ -726,7 +758,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
                     "signature_mode"] == "full_matrix" and self.use_ids and self.comparison_mode == "fixed_resolution" and not self._use_mpmath(
                     settings)
 
-                optimized_full_matrix = False
+                # optimized_full_matrix = False
 
                 if optimized_full_matrix:
                     values, next_id = self._full_matrix_optimized(current_graphs, settings, next_id)
