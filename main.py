@@ -3,11 +3,13 @@ from sklearn.metrics import normalized_mutual_info_score
 
 from src.k_wl.kwl import run_kwl
 from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
+
 from src.utils.graph_utils import *
+from src.probing.probing import *
 
 
 def main():
-    graph_file=Path("graphs/35-16-6-8/Graph1024")
+    graph_file=Path("graphs/nauty_graphs/sts/sts-25")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set fit_order/fit_start/fit_end
@@ -38,10 +40,15 @@ def main():
     #   [("line",2),("distance",2)]     -> L(L(G2))
     #   Transformations are written as the final expression is read.
     # operators:
-    #   "laplacian"   -> heat-kernel signatures
-    #   "dirac"       -> Dirac signatures
-    #   "topological" -> structural/topological measures
-    #   [] -> skip signature computation for this graph
+    #   "laplacian"    -> heat-kernel signatures
+    #   "dirac"        -> Dirac signatures
+    #   "topological"  -> structural/topological measures
+    #   "correlation"  -> Laplacian pseudoinverse correlation signatures
+    #   []             -> skip signature computation for this graph
+
+    # precision_dps:
+    #   None -> use standard NumPy float64 precision
+    #   N    -> use mpmath arbitrary precision with N decimal digits
 
     subdivision_k=0
 
@@ -49,20 +56,23 @@ def main():
         {
             "name": "G",
             "transformations": [],
-            "operators": ["topological","dirac","laplacian"],
+            "operators": ["laplacian"],
+            "bfs_sort": True,
             "signature_mode": "full_matrix",
             "time_step": 1,
             "end_time_multiplier": 7,
             "fit_order": 6,
             "fit_start": 1,
             "fit_end": 6,
-            "resolutions": [1e10],
+            "resolutions": [1e8],
             "dirac_decimals": 6,
+            "precision_dps": None
         },
         {
             "name":"L(G)",
             "transformations":[("line",1)],
             "operators": ["laplacian"],
+            "bfs_sort": True,
             "signature_mode": "full_matrix",
             "time_step": 1,
             "end_time_multiplier": 7,
@@ -71,30 +81,18 @@ def main():
             "fit_end": 4,
             "resolutions": [1e10],
             "dirac_decimals": 6,
+            "precision_dps": None
         },
-        # {
-        #     "name":"L(L(G2))",
-        #     "transformations":[("line",2),("distance",2)],
-        #     "operators": ["laplacian"],
-        #     "signature_mode": "full_matrix",
-        #     "time_step": 1,
-        #     "end_time_multiplier": 15,
-        #     "fit_order": 6,
-        #     "fit_start": 1,
-        #     "fit_end": 4,
-        #     "resolutions": [1e10],
-        #     "dirac_decimals":6,
-        # },
     ]
 
     equivalence_computer = HeatKernelEquivalenceComputer(
         graph_settings=graph_settings,
-        distance_graph_order=1,
         comparison_mode="fixed_resolution",
         bfs_depth=100,
         weird_norm_threshold=1e-5,
         zero_tolerance=1e-12,
         use_ids=True,
+        use_stable_ids = False,
     )
 
     original_graph=read_dimacs_or_simple_graph(graph_file)
@@ -120,6 +118,20 @@ def main():
 
     print(f"NMI: {nmi:.4f}")
     print(f"Same-orbit probability: {probability:.4f}")
+
+    # -----------------------
+    # Probing
+    # -----------------------
+
+    # probing_classes = probe_partition(graph, equivalence_computer, classes, clique_addition, p=2, c=2, M=1)
+    # probing_class_labels = partition_to_labels(probing_classes,original_n)
+    # probing_nmi = normalized_mutual_info_score(probing_class_labels, orbit_labels)
+    # probing_probability = compute_overall_same_orbit_probability(graph, probing_classes, original_n)
+    # print("Probing classes: ", probing_class_labels)
+    # print(f"NMI After Probing: {probing_nmi:.4f}")
+    # print(f"Same-orbit probability After Probing: {probing_probability:.4f}")
+
+
 
     # k-WL uses an external executable named `run_wl`.
     # Before running the experiment, compile it once with:

@@ -4,6 +4,7 @@ import networkx as nx
 import pynauty
 import random
 import numpy as np
+from src.utils.memory_capacity import guard_remaining_memory
 
 def construct_distance_graph(G,distance):
     nodes=list(G.nodes())
@@ -48,6 +49,7 @@ def construct_transformed_graph(G,transformations):
     membership={v:{v} for v in G.nodes()}
 
     for operation,value in reversed(transformations):
+        guard_remaining_memory("line graph construction",reserve_percent=50)
         if operation=="distance":
             current_graph=construct_distance_graph(current_graph,value,)
         elif operation=="line":
