@@ -15,6 +15,10 @@ MAX_LINE_ORDER = 2
 SUBDIVISION_K = 0
 OPERATORS = ["laplacian", "correlation", "dirac"]
 
+
+START_RESOLUTION = 1e8
+MIN_RESOLUTION = 1
+
 BASE_SETTING = {
     "bfs_sort": True,
     "signature_mode": "full_matrix",
@@ -23,7 +27,7 @@ BASE_SETTING = {
     "fit_order": 6,
     "fit_start": 1,
     "fit_end": 6,
-    "resolutions": [1e6],
+    "resolutions": [START_RESOLUTION],
     "dirac_decimals": 6,
     "precision_dps": None,
 }
@@ -49,7 +53,9 @@ def main():
                 G0 = read_dimacs_or_simple_graph(graph_file)
                 n = G0.number_of_nodes()
                 G = subdivide_every_edge(G0, SUBDIVISION_K)
-                orbit_labels = partition_to_labels(get_true_orbits_restricted(G, n), n)
+                orbit_labels = partition_to_labels(
+                    get_true_orbits_restricted(G, n), n
+                )
 
                 classes = None
                 solved = aborted = False
@@ -77,24 +83,25 @@ def main():
                     classes = dict(enumerate(out))
 
                 def evaluate(stage):
-                    nonlocal solved, aborted
+                    nonlocal solved
 
                     nmi = normalized_mutual_info_score(
                         orbit_labels, partition_to_labels(classes, n)
                     )
-                    p = compute_overall_same_orbit_probability(G, classes, n)
+                    p = compute_overall_same_orbit_probability(
+                        G, classes, n
+                    )
 
                     write(
                         f"{stage:<42} NMI={nmi:.6f}   "
                         f"P={p:.6f}   classes={len(classes)}\n"
                     )
 
-                    if p <= 1e-12:
-                        aborted = True
-                        write(f"\nABORTED at {stage}: P=0\n")
-                    elif nmi >= 1 - 1e-12:
+                    if p > 1e-12 and nmi >= 1 - 1e-12:
                         solved = True
                         write(f"\nSolved at {stage}\n")
+
+                    return p
 
                 for order in range(MAX_LINE_ORDER + 1):
                     name = (
@@ -104,8 +111,10 @@ def main():
                     )
                     line_t = [] if order == 0 else [("line", order)]
 
-                    # Actual G / L(G) / L²(G)
-                    base_graph, membership = construct_transformed_graph(G, line_t)
+                    base_graph, membership = construct_transformed_graph(
+                        G, line_t
+                    )
+
                     if nx.is_connected(base_graph):
                         diameter = nx.diameter(base_graph)
                     else:
@@ -116,7 +125,6 @@ def main():
 
                     write(f"\n--- {name}, diameter={diameter} ---\n")
 
-                    # Base graph, then distance graphs up to its diameter
                     stages = [(name, line_t)] + [
                         (f"{name}_{d}", [("distance", d)] + line_t)
                         for d in range(2, diameter + 1)
@@ -125,24 +133,59 @@ def main():
                     # Laplacian -> Correlation -> Dirac
                     for stage_name, transforms in stages:
                         for op in OPERATORS:
-                            s = {
-                                **BASE_SETTING,
-                                "name": f"{stage_name}-{op}",
-                                "transformations": transforms,
-                                "operators": [op],
-                            }
 
-                            computer = HeatKernelEquivalenceComputer(
-                                graph_settings=[s],
-                                comparison_mode="fixed_resolution",
-                                bfs_depth=1000,
-                                use_ids=True,
-                                use_stable_ids=False,
+                            # Save partition before this stage
+                            previous_classes = (
+                                None if classes is None else
+                                {i: list(cls) for i, cls in classes.items()}
                             )
 
-                            new, _ = computer.compute_vertex_signatures(G)
-                            refine(restrict_to_original(new, n))
-                            evaluate(s["name"])
+                            resolution = START_RESOLUTION
+
+                            while True:
+                                # Restore partition before retrying
+                                classes = (
+                                    None if previous_classes is None else
+                                    {i: list(cls)
+                                     for i, cls in previous_classes.items()}
+                                )
+
+                                s = {
+                                    **BASE_SETTING,
+                                    "name": f"{stage_name}-{op}",
+                                    "transformations": transforms,
+                                    "operators": [op],
+                                    "resolutions": [resolution],
+                                }
+
+                                computer = HeatKernelEquivalenceComputer(
+                                    graph_settings=[s],
+                                    comparison_mode="fixed_resolution",
+                                    bfs_depth=1000,
+                                    use_ids=True,
+                                    use_stable_ids=False,
+                                )
+
+                                new, _ = computer.compute_vertex_signatures(G)
+                                refine(restrict_to_original(new, n))
+                                p = evaluate(s["name"])
+
+                                if solved or p > 1e-12:
+                                    break
+
+                                if resolution <= MIN_RESOLUTION:
+                                    aborted = True
+                                    write(
+                                        f"\nABORTED at {s['name']}: "
+                                        f"P=0 even at r={resolution:.0e}\n"
+                                    )
+                                    break
+
+                                resolution /= 10
+                                write(
+                                    f"P=0 at {s['name']}; "
+                                    f"retrying with r={resolution:.0e}\n"
+                                )
 
                             if solved or aborted:
                                 break
@@ -154,41 +197,75 @@ def main():
                         break
 
                     # Edge-addition probe directly on G / L(G) / L²(G)
-                    probe_setting = {
-                        **BASE_SETTING,
-                        "name": f"{name}-probe",
-                        "transformations": [],
-                        "operators": ["laplacian"],
-                    }
-
-                    probe_computer = HeatKernelEquivalenceComputer(
-                        graph_settings=[probe_setting],
-                        comparison_mode="fixed_resolution",
-                        bfs_depth=100,
-                        use_ids=True,
-                        use_stable_ids=True,
+                    previous_classes = (
+                        None if classes is None else
+                        {i: list(cls) for i, cls in classes.items()}
                     )
 
-                    profiles = edge_addition(
-                        base_graph, probe_computer,
-                        list(base_graph.nodes()), M=1
-                    )
+                    resolution = START_RESOLUTION
 
-                    # Map probe information back to original G vertices
-                    probe_signatures = {
-                        v: tuple(sorted(
-                            (profiles[u] for u in membership[v]),
-                            key=repr
-                        ))
-                        for v in G.nodes()
-                    }
+                    while True:
+                        classes = (
+                            None if previous_classes is None else
+                            {i: list(cls)
+                             for i, cls in previous_classes.items()}
+                        )
 
-                    groups = {}
-                    for v, sig in probe_signatures.items():
-                        groups.setdefault(sig, []).append(v)
+                        probe_setting = {
+                            **BASE_SETTING,
+                            "name": f"{name}-probe",
+                            "transformations": [],
+                            "operators": ["laplacian"],
+                            "resolutions": [resolution],
+                        }
 
-                    refine(dict(enumerate(groups.values())))
-                    evaluate(f"{name}-probe-edge_addition")
+                        probe_computer = HeatKernelEquivalenceComputer(
+                            graph_settings=[probe_setting],
+                            comparison_mode="fixed_resolution",
+                            bfs_depth=100,
+                            use_ids=True,
+                            use_stable_ids=True,
+                        )
+
+                        profiles = edge_addition(
+                            base_graph,
+                            probe_computer,
+                            list(base_graph.nodes()),
+                            M=1
+                        )
+
+                        probe_signatures = {
+                            v: tuple(sorted(
+                                (profiles[u] for u in membership[v]),
+                                key=repr
+                            ))
+                            for v in G.nodes()
+                        }
+
+                        groups = {}
+                        for v, sig in probe_signatures.items():
+                            groups.setdefault(sig, []).append(v)
+
+                        refine(dict(enumerate(groups.values())))
+                        stage = f"{name}-probe-edge_addition"
+                        p = evaluate(stage)
+
+                        if solved or p > 1e-12:
+                            break
+
+                        if resolution <= MIN_RESOLUTION:
+                            aborted = True
+                            write(
+                                f"\nABORTED at {stage}: "
+                                f"P=0 even at r={resolution:.0e}\n"
+                            )
+                            break
+
+                        resolution /= 10
+                        write(
+                            f"P=0 at {stage}; "
+                            f"retrying with r={resolution:.0e}\n"
+                        )
 
                     if solved or aborted:
                         break
@@ -196,15 +273,18 @@ def main():
                 if solved:
                     write("\nSTATUS: SOLVED\n")
                 elif aborted:
-                    write("\nSTATUS: ABORTED — P=0\n")
+                    write("\nSTATUS: ABORTED — P=0 AT MINIMUM RESOLUTION\n")
                 else:
-                    write(f"\nSTATUS: NOT SOLVED up to L^{MAX_LINE_ORDER}(G)\n")
+                    write(
+                        f"\nSTATUS: NOT SOLVED up to "
+                        f"L^{MAX_LINE_ORDER}(G)\n"
+                    )
 
             except MemoryError as e:
                 write(
                     f"\nMEMORY ERROR on {graph_file.name}: {e}\n"
                     f"{traceback.format_exc()}\n"
-                    "STATUS: STOPPED — MEMORY ERROR\n"
+                    "STATUS: SKIPPED — MEMORY ERROR\n"
                 )
                 continue
 
