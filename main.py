@@ -68,7 +68,23 @@ def main():
             "dirac_decimals": 6,
             "dirac_mass": 1.0,
             "precision_dps": None
-        }
+        },
+        # {
+        #     "name": "L(G)",
+        #     "transformations": [("line", 1)],
+        #     "operators": ["dirac_correlation"],
+        #     "bfs_sort": True,
+        #     "signature_mode": "full_matrix",
+        #     "time_step": 1,
+        #     "end_time_multiplier": 7,
+        #     "fit_order": 6,
+        #     "fit_start": 1,
+        #     "fit_end": 6,
+        #     "resolutions": [1e8],
+        #     "dirac_decimals": 6,
+        #     "dirac_mass": 1.0,
+        #     "precision_dps": None
+        # }
     ]
 
     equivalence_computer = HeatKernelEquivalenceComputer(

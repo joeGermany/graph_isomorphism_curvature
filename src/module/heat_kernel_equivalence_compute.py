@@ -121,7 +121,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         if operator == "laplacian":
             matrix = nx.laplacian_matrix(G, nodelist=nodes).toarray()
 
-        elif operator == "dirac" or operator == "dirac_correlation":
+        elif operator == "dirac":
             B = nx.incidence_matrix(G, nodelist=nodes, edgelist=edges, oriented=True).toarray()
             matrix = np.block([
                 [np.zeros((n, n)), B],
@@ -507,12 +507,9 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         return node_signatures
 
 
-    def _dirac_correlation_signatures(self, G, spectral_data, settings):
-        nodes = spectral_data["items"]
-        edges = spectral_data["edges"]
-        eigenvalues = spectral_data["eigenvalues"]
-        eigenvectors = spectral_data["eigenvectors"]
-        times = spectral_data["times"]
+    def _dirac_correlation_signatures(self, G, settings):
+        nodes = list(G.nodes())
+        edges = list(G.edges())
 
         n = len(nodes)
         m = len(edges)
@@ -552,14 +549,14 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         kernel = np.linalg.inv(matrix)
         del matrix
 
-        for i, v in enumerate(nodes):
+        for i, v in tqdm(enumerate(nodes), total=len(nodes), desc="Dirac Correlation Nodes Signatures", unit="vertex", dynamic_ncols=True):
             vv_values = kernel[i, :n]
             ve_values = kernel[i, n:]
 
             node_signatures[v].append(complex_signature(vv_values))
             node_signatures[v].append(complex_signature(ve_values))
 
-        for i in range(m):
+        for i in tqdm(range(m), total=len(edges), desc="Dirac Correlation Edges Signatures", unit="edge", dynamic_ncols=True):
             ve_values = kernel[:n, n + i]
             ee_values = kernel[n + i, n:]
 
@@ -588,17 +585,17 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             items = list(G.nodes())
             return {item: values[index] for index, item in enumerate(items)}
 
+        if operator == "dirac_correlation":
+            values = self._dirac_correlation_signatures(G, settings)
+            items = list(G.nodes())
+            return {item: values[index] for index, item in enumerate(items)}
+
         if operator == "topological":
             return self._topological_signatures(G)
 
         spectral_data = self._spectral_data(G, settings, operator)
         if operator == "dirac":
             return self._dirac_signatures(G, spectral_data, settings)
-
-        if operator == "dirac_correlation":
-            values = self._dirac_correlation_signatures(G, spectral_data, settings)
-            items = list(G.nodes())
-            return {item: values[index] for index, item in enumerate(items)}
 
         signature_mode = settings["signature_mode"]
 
