@@ -28,7 +28,6 @@ BASE_SETTING = {
     "fit_start": 1,
     "fit_end": 6,
     "resolutions": [START_RESOLUTION],
-    "dirac_decimals": 6,
     "precision_dps": None,
 }
 
@@ -130,7 +129,7 @@ def main():
                         for d in range(2, diameter + 1)
                     ]
 
-                    # Laplacian -> Correlation -> Dirac
+                    # Laplacian -> Correlation ->
                     for stage_name, transforms in stages:
                         for op in OPERATORS:
 

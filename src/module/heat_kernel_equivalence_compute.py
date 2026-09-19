@@ -422,27 +422,28 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         n = len(nodes)
         m = len(edges)
         dimension = n + m
-        decimals = settings.get("dirac_decimals", 6)
+        resolution = settings["resolutions"][0]
         use_mp = self._use_mpmath(settings)
 
         def complex_signature(values):
             if use_mp:
-                scale = mp.mpf(10) ** decimals
+                res = mp.mpf(str(resolution))
                 return tuple(sorted(
-                    (mp.nint(abs(mp.re(z)) * scale) / scale,
-                     mp.nint(abs(mp.im(z)) * scale) / scale)
+                    (
+                        int(mp.floor(abs(mp.re(z)) * res)),
+                        int(mp.floor(abs(mp.im(z)) * res))
+                    )
                     for z in values
                 ))
 
             pairs = np.column_stack((
-                np.round(np.abs(values.real), decimals),
-                np.round(np.abs(values.imag), decimals)
+                np.trunc(np.abs(values.real) * resolution),
+                np.trunc(np.abs(values.imag) * resolution)
             ))
 
             pairs = pairs[np.lexsort((pairs[:, 1], pairs[:, 0]))]
 
             return tuple(map(tuple, pairs))
-
         node_signatures = {v: [] for v in nodes}
         edge_signatures = {i: [] for i in range(m)}
 
@@ -514,21 +515,23 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         n = len(nodes)
         m = len(edges)
         dimension = n + m
-        decimals = settings.get("dirac_decimals", 6)
         use_mp = self._use_mpmath(settings)
+        resolution = settings["resolutions"][0]
 
         def complex_signature(values):
             if use_mp:
-                scale = mp.mpf(10) ** decimals
+                res = mp.mpf(str(resolution))
                 return tuple(sorted(
-                    (mp.nint(abs(mp.re(z)) * scale) / scale,
-                        mp.nint(abs(mp.im(z)) * scale) / scale)
+                    (
+                        int(mp.floor(abs(mp.re(z)) * res)),
+                        int(mp.floor(abs(mp.im(z)) * res))
+                    )
                     for z in values
                 ))
 
             pairs = np.column_stack((
-                np.round(np.abs(values.real), decimals),
-                np.round(np.abs(values.imag), decimals)
+                np.trunc(np.abs(values.real) * resolution),
+                np.trunc(np.abs(values.imag) * resolution)
             ))
 
             pairs = pairs[np.lexsort((pairs[:, 1], pairs[:, 0]))]

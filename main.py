@@ -65,7 +65,6 @@ def main():
             "fit_start": 1,
             "fit_end": 6,
             "resolutions": [1e8],
-            "dirac_decimals": 6,
             "dirac_mass": 1.0,
             "precision_dps": None
         },
@@ -81,7 +80,6 @@ def main():
         #     "fit_start": 1,
         #     "fit_end": 6,
         #     "resolutions": [1e8],
-        #     "dirac_decimals": 6,
         #     "dirac_mass": 1.0,
         #     "precision_dps": None
         # }
