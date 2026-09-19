@@ -8,8 +8,8 @@ from src.utils.graph_utils import *
 from src.probing.probing import *
 
 
-GRAPH_DIR = Path("graphs/nauty_graphs/dimacs/grid")
-OUTPUT_FILE = Path("results/results_grid.txt")
+GRAPH_DIR = Path("graphs/nauty_graphs/dimacs/mz")
+OUTPUT_FILE = Path("results/results_mz.txt")
 
 MAX_LINE_ORDER = 2
 SUBDIVISION_K = 0

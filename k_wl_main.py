@@ -7,7 +7,7 @@ from src.k_wl.kwl import run_kwl
 from src.utils.graph_utils import *
 
 
-GRAPH_DIR = Path("graphs/nauty_graphs/dimacs/grid")
+GRAPH_DIR = Path("graphs/nauty_graphs/dimacs/mz")
 OUTPUT_FILE = Path("results/kwl_results.txt")
 
 MAX_K = 10

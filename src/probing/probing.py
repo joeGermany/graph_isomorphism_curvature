@@ -292,7 +292,7 @@ def folding(graph, computer, cls, p, M=1):
     if p * M > len(nodes):
         raise ValueError("Not enough vertices for M disjoint groups of size p.")
 
-    for u in cls:
+    for u in tqdm(cls, desc="Folding probing", unit="vertex", dynamic_ncols=True):
         others = [v for v in nodes if v != u]
 
         # Choose the p-1 other vertices that will be folded with u.
