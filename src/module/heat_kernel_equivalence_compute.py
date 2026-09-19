@@ -281,7 +281,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             distance_matrix = shortest_path(adjacency, directed=False, unweighted=True)
             distance_matrix[np.isinf(distance_matrix)] = size + 1
 
-        for time_value in tqdm(times, total=len(times), desc=f"{settings['name']} heat signatures", unit="time", dynamic_ncols=True):
+        for time_value in tqdm(times, total=len(times), desc=f"{settings['name']} heat signatures", unit="time",dynamic_ncols=True, disable=not self.show_progress):
 
             guard_memory(
                 3 * matrix_bytes,
