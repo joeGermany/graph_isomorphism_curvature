@@ -287,6 +287,7 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
                 3 * matrix_bytes,
                 f"heat matrix ({size} x {size})"
             )
+            #raise np.exp(-eigenvalues * time_value) to power s for fractional laplacian
             heat_matrix = (eigenvectors * np.exp(-eigenvalues * time_value)) @ eigenvectors.T
 
             for root in range(size):
@@ -430,20 +431,21 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
                 res = mp.mpf(str(resolution))
                 return tuple(sorted(
                     (
-                        int(mp.floor(abs(mp.re(z)) * res)),
-                        int(mp.floor(abs(mp.im(z)) * res))
+                        int(mp.nint(abs(mp.re(z)) * res)),
+                        int(mp.nint(abs(mp.im(z)) * res))
                     )
                     for z in values
                 ))
 
             pairs = np.column_stack((
-                np.trunc(np.abs(values.real) * resolution),
-                np.trunc(np.abs(values.imag) * resolution)
+                np.rint(np.abs(values.real) * resolution),
+                np.rint(np.abs(values.imag) * resolution)
             ))
 
             pairs = pairs[np.lexsort((pairs[:, 1], pairs[:, 0]))]
 
             return tuple(map(tuple, pairs))
+
         node_signatures = {v: [] for v in nodes}
         edge_signatures = {i: [] for i in range(m)}
 
@@ -523,15 +525,15 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
                 res = mp.mpf(str(resolution))
                 return tuple(sorted(
                     (
-                        int(mp.floor(abs(mp.re(z)) * res)),
-                        int(mp.floor(abs(mp.im(z)) * res))
+                        int(mp.nint(abs(mp.re(z)) * res)),
+                        int(mp.nint(abs(mp.im(z)) * res))
                     )
                     for z in values
                 ))
 
             pairs = np.column_stack((
-                np.trunc(np.abs(values.real) * resolution),
-                np.trunc(np.abs(values.imag) * resolution)
+                np.rint(np.abs(values.real) * resolution),
+                np.rint(np.abs(values.imag) * resolution)
             ))
 
             pairs = pairs[np.lexsort((pairs[:, 1], pairs[:, 0]))]

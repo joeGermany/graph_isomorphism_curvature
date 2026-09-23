@@ -8,16 +8,15 @@ from src.utils.graph_utils import *
 from src.probing.probing import *
 
 
-GRAPH_DIR = Path("graphs/nauty_graphs/dimacs/mz")
-OUTPUT_FILE = Path("results/results_mz.txt")
+GRAPH_DIR = Path("graphs/nauty_graphs/dimacs/failing_graphs")
+OUTPUT_FILE = Path("results/results_failing.txt")
 
 MAX_LINE_ORDER = 2
 SUBDIVISION_K = 0
 OPERATORS = ["laplacian", "correlation", "dirac"]
-
-
-START_RESOLUTION = 1e8
+START_RESOLUTION = 1e15
 MIN_RESOLUTION = 1
+
 
 BASE_SETTING = {
     "bfs_sort": True,
@@ -28,9 +27,8 @@ BASE_SETTING = {
     "fit_start": 1,
     "fit_end": 6,
     "resolutions": [START_RESOLUTION],
-    "precision_dps": None,
+    "precision_dps": 20,
 }
-
 
 def main():
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -39,7 +37,6 @@ def main():
         key=lambda p: [int(x) if x.isdigit() else x.lower()
                        for x in re.split(r"(\d+)", p.name)]
     )
-
     with OUTPUT_FILE.open("w") as f:
 
         def write(s):
@@ -203,71 +200,71 @@ def main():
 
                     resolution = START_RESOLUTION
 
-                    while True:
-                        classes = (
-                            None if previous_classes is None else
-                            {i: list(cls)
-                             for i, cls in previous_classes.items()}
-                        )
-
-                        probe_setting = {
-                            **BASE_SETTING,
-                            "name": f"{name}-probe",
-                            "transformations": [],
-                            "operators": ["laplacian"],
-                            "resolutions": [resolution],
-                        }
-
-                        probe_computer = HeatKernelEquivalenceComputer(
-                            graph_settings=[probe_setting],
-                            comparison_mode="fixed_resolution",
-                            bfs_depth=100,
-                            use_ids=True,
-                            use_stable_ids=True,
-                        )
-
-                        profiles = edge_addition(
-                            base_graph,
-                            probe_computer,
-                            list(base_graph.nodes()),
-                            M=1
-                        )
-
-                        probe_signatures = {
-                            v: tuple(sorted(
-                                (profiles[u] for u in membership[v]),
-                                key=repr
-                            ))
-                            for v in G.nodes()
-                        }
-
-                        groups = {}
-                        for v, sig in probe_signatures.items():
-                            groups.setdefault(sig, []).append(v)
-
-                        refine(dict(enumerate(groups.values())))
-                        stage = f"{name}-probe-edge_addition"
-                        p = evaluate(stage)
-
-                        if solved or p > 1e-12:
-                            break
-
-                        if resolution <= MIN_RESOLUTION:
-                            aborted = True
-                            write(
-                                f"\nABORTED at {stage}: "
-                                f"P=0 even at r={resolution:.0e}\n"
-                            )
-                            break
-
-                        resolution /= 10
-                        write(
-                            f"P=0 at {stage}; "
-                            f"retrying with r={resolution:.0e}\n"
-                        )
-
-                    if solved or aborted:
-                        break
+                    # while True:
+                    #     classes = (
+                    #         None if previous_classes is None else
+                    #         {i: list(cls)
+                    #          for i, cls in previous_classes.items()}
+                    #     )
+                    #
+                    #     probe_setting = {
+                    #         **BASE_SETTING,
+                    #         "name": f"{name}-probe",
+                    #         "transformations": [],
+                    #         "operators": ["laplacian"],
+                    #         "resolutions": [resolution],
+                    #     }
+                    #
+                    #     probe_computer = HeatKernelEquivalenceComputer(
+                    #         graph_settings=[probe_setting],
+                    #         comparison_mode="fixed_resolution",
+                    #         bfs_depth=100,
+                    #         use_ids=True,
+                    #         use_stable_ids=True,
+                    #     )
+                    #
+                    #     profiles = edge_addition(
+                    #         base_graph,
+                    #         probe_computer,
+                    #         list(base_graph.nodes()),
+                    #         M=1
+                    #     )
+                    #
+                    #     probe_signatures = {
+                    #         v: tuple(sorted(
+                    #             (profiles[u] for u in membership[v]),
+                    #             key=repr
+                    #         ))
+                    #         for v in G.nodes()
+                    #     }
+                    #
+                    #     groups = {}
+                    #     for v, sig in probe_signatures.items():
+                    #         groups.setdefault(sig, []).append(v)
+                    #
+                    #     refine(dict(enumerate(groups.values())))
+                    #     stage = f"{name}-probe-edge_addition"
+                    #     p = evaluate(stage)
+                    #
+                    #     if solved or p > 1e-12:
+                    #         break
+                    #
+                    #     if resolution <= MIN_RESOLUTION:
+                    #         aborted = True
+                    #         write(
+                    #             f"\nABORTED at {stage}: "
+                    #             f"P=0 even at r={resolution:.0e}\n"
+                    #         )
+                    #         break
+                    #
+                    #     resolution /= 10
+                    #     write(
+                    #         f"P=0 at {stage}; "
+                    #         f"retrying with r={resolution:.0e}\n"
+                    #     )
+                    #
+                    # if solved or aborted:
+                    #     break
 
                 if solved:
                     write("\nSTATUS: SOLVED\n")
