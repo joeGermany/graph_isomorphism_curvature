@@ -312,6 +312,17 @@ def folding(graph, computer, cls, p, M=1):
 
     return {u: _profile(signatures) for u, signatures in profiles.items()}
 
+
+def single_clique_addition(graph, computer, cls, c):
+    profiles = {}
+
+    for u in tqdm(cls,desc="Single Clique probing",unit="vertex",dynamic_ncols=True):
+        probed = graph.copy()
+        _add_clique(probed, [u], c)
+        profiles[u] = _signature(computer, probed, u)
+
+    return profiles
+
 def probe_partition(graph, computer, classes, probe, **kwargs):
     refined = []
 

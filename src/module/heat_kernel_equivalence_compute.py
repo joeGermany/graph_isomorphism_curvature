@@ -5,6 +5,7 @@ import numpy as np
 from scipy.stats import linregress
 import mpmath as mp
 from tqdm.auto import tqdm
+import copy
 from src.utils.graph_utils import construct_transformed_graph
 from scipy.sparse.csgraph import shortest_path
 
@@ -39,33 +40,53 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
         self.use_ids = use_ids
         self.use_stable_ids = use_stable_ids
         self.show_progress = show_progress
+        self._hash_registry = {}
+        # self._prefix_registry = {}
 
+    def _check_hash_collision(self, digest, signature_bytes):
+        if digest in self._hash_registry:
+            stored_signature = self._hash_registry[digest]
+
+            if stored_signature != signature_bytes:
+                raise RuntimeError(
+                    f"HASH COLLISION DETECTED: {digest.hex()}"
+                )
+
+        else:
+            self._hash_registry[digest] = bytes(signature_bytes)
     def _use_mpmath(self, settings):
         return settings.get("precision_dps") is not None
 
     def _stable_id(self, signature):
-        h = hashlib.blake2b(digest_size=32)
-
         if isinstance(signature, np.ndarray):
-            array = np.ascontiguousarray(signature)
+            array = np.ascontiguousarray(signature).copy()
 
             # Make +0.0 and -0.0 identical
             array[array == 0] = 0.0
 
-            h.update(array.dtype.str.encode())
-            h.update(np.asarray(array.shape, dtype=np.int64).tobytes())
-            h.update(memoryview(array).cast("B"))
+            signature_bytes = (
+                    array.dtype.str.encode()
+                        + np.asarray(
+                            array.shape,
+                            dtype=np.int64
+                            ).tobytes()
+                    + array.tobytes()
+            )
 
         else:
-            h.update(repr(signature).encode("utf-8"))
+            signature_bytes = repr(signature).encode("utf-8")
 
-        return int.from_bytes(h.digest(), "big")
+        digest = hashlib.blake2b(signature_bytes,digest_size=32).digest()
 
+        self._check_hash_collision(digest, signature_bytes)
+
+        return int.from_bytes(digest, "big")
     def _eigendecomposition(self, matrix, settings):
         precision_dps = settings.get("precision_dps")
 
         if precision_dps is None:
             return np.linalg.eigh(matrix)
+
 
         with mp.workdps(precision_dps):
             matrix_mp = mp.matrix([
@@ -309,35 +330,6 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             for g, d in zip(graphs, spectral_data)
         ]
         time_instances = len(spectral_data[0]["times"])
-
-        if self.use_stable_ids:
-            hashers = [
-                {item: hashlib.blake2b(digest_size=32) for item in d["items"]}
-                for d in spectral_data
-            ]
-
-            for _ in range(time_instances):
-                signatures = [next(gen) for gen in generators]
-
-                for k, sigs in enumerate(signatures):
-                    for item, sig in sigs.items():
-                        arr = np.ascontiguousarray(sig.copy())
-                        arr[arr == 0] = 0.0
-                        hashers[k][item].update(arr.dtype.str.encode())
-                        hashers[k][item].update(
-                            np.asarray(arr.shape, dtype=np.int64).tobytes()
-                        )
-                        hashers[k][item].update(memoryview(arr).cast("B"))
-
-            ids = [
-                {
-                    item: int.from_bytes(h.digest(), "big")
-                    for item, h in graph_hashers.items()
-                }
-                for graph_hashers in hashers
-            ]
-            return ids, start_id
-
         classes = [[
             (k, item)
             for k, data in enumerate(spectral_data)
@@ -836,11 +828,11 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
                 memberships.append(membership)
 
             for operator in settings["operators"]:
+                #disabled for probing
                 optimized_full_matrix = operator == "laplacian" and settings[
-                    "signature_mode"] == "full_matrix" and self.use_ids and self.comparison_mode == "fixed_resolution" and not self._use_mpmath(
+                    "signature_mode"] == "full_matrix" and self.use_ids and not self.use_stable_ids and self.comparison_mode == "fixed_resolution" and not self._use_mpmath(
                     settings)
 
-                # optimized_full_matrix = False
 
                 if optimized_full_matrix:
                     values, next_id = self._full_matrix_optimized(current_graphs, settings, next_id)
