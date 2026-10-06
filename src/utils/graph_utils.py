@@ -49,7 +49,7 @@ def construct_transformed_graph(G,transformations):
     membership={v:{v} for v in G.nodes()}
 
     for operation,value in reversed(transformations):
-        guard_remaining_memory("line graph construction",reserve_percent=50)
+        guard_remaining_memory("line graph construction",reserve_percent=15)
         if operation=="distance":
             current_graph=construct_distance_graph(current_graph,value,)
         elif operation=="line":

@@ -1,6 +1,7 @@
 from itertools import combinations, permutations, product
 import networkx as nx
 from tqdm.auto import tqdm
+import numpy as np
 
 def _signature(computer, graph, vertex):
     old_use_ids = computer.use_ids
@@ -320,6 +321,63 @@ def single_clique_addition(graph, computer, cls, c):
         probed = graph.copy()
         _add_clique(probed, [u], c)
         profiles[u] = _signature(computer, probed, u)
+
+    return profiles
+
+def _fold_correlation(graph, u, nodes):
+    nodes = set(nodes)
+
+    new_graph = graph.copy()
+    new_graph.remove_nodes_from(nodes)
+    new_graph.add_node(u)
+
+    for v in nodes:
+        for w in graph.neighbors(v):
+            if w not in nodes:
+                new_graph.add_edge(u, w)
+
+    return new_graph
+
+def fold_based_on_correlation(graph, computer, cls):
+    profiles = {}
+
+    items = list(graph.nodes())
+
+    L = nx.laplacian_matrix(graph, nodelist=items).toarray()
+    C = np.linalg.pinv(L)
+
+    C -= np.diag(np.diag(C))
+
+    # C = np.abs(C)
+
+    C = np.trunc(C*1e6)
+
+    maxes = []
+    for row in C:
+        current_max = -1
+        for i in range(len(row)):
+            if row[i] >= current_max:
+                current_max = row[i]
+        maxes.append(current_max)
+
+    maxes_argmax = []
+    for i in range(C.shape[0]):
+        maxes_argmax.append([])
+        for j in range(C.shape[1]):
+            if C[i][j] == maxes[i]:
+                maxes_argmax[i].append(j)
+
+    for u in tqdm(cls):
+        u_idx = items.index(u)
+
+        nodes = {u}
+        nodes.update(items[j] for j in maxes_argmax[u_idx])
+
+        probed = _fold_correlation(graph, u, nodes)
+
+        signature = _signature(computer, probed, u)
+
+        profiles[u] = signature
 
     return profiles
 

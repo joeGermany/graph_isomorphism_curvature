@@ -61,7 +61,7 @@ def guard_memory(required, operation, safety=0.8):
         )
 
 
-def guard_remaining_memory(operation, reserve_percent=50):
+def guard_remaining_memory(operation, reserve_percent=15):
     available = available_memory()
     capacity = memory_capacity()
 
