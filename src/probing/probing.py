@@ -1,24 +1,27 @@
 from itertools import combinations, permutations, product
 import networkx as nx
 from tqdm.auto import tqdm
-import numpy as np
 
-def _signature(computer, graph, vertex):
+def _all_signatures(computer, graph):
     old_use_ids = computer.use_ids
     old_use_stable_ids = computer.use_stable_ids
     old_show_progress = computer.show_progress
 
-    computer.use_ids = True
-    computer.use_stable_ids = True
+    computer.use_ids = old_use_ids
+    computer.use_stable_ids = old_use_ids
     computer.show_progress = False
 
     try:
         _, signatures = computer.compute_vertex_signatures(graph)
-        return signatures[vertex]
+        return signatures
     finally:
         computer.use_ids = old_use_ids
         computer.use_stable_ids = old_use_stable_ids
         computer.show_progress = old_show_progress
+
+
+def _signature(computer, graph, vertex):
+    return _all_signatures(computer, graph)[vertex]
 
 def _profile(signatures):
     """A probing profile is just the sorted multiset of obtained signatures."""
@@ -324,62 +327,70 @@ def single_clique_addition(graph, computer, cls, c):
 
     return profiles
 
-def _fold_correlation(graph, u, nodes):
-    nodes = set(nodes)
 
-    new_graph = graph.copy()
-    new_graph.remove_nodes_from(nodes)
-    new_graph.add_node(u)
 
-    for v in nodes:
-        for w in graph.neighbors(v):
-            if w not in nodes:
-                new_graph.add_edge(u, w)
+def node_deletion(graph, computer, cls, M=1):
+    profiles = {u: [] for u in cls}
+    nodes = list(graph.nodes())
 
-    return new_graph
+    for deleted_vertex in tqdm(cls, desc=f"Node deletion M={M}", unit="deletion",dynamic_ncols=True):
 
-def fold_based_on_correlation(graph, computer, cls):
-    profiles = {}
 
-    items = list(graph.nodes())
+        probed = graph.copy()
+        probed.remove_node(deleted_vertex)
 
-    L = nx.laplacian_matrix(graph, nodelist=items).toarray()
-    C = np.linalg.pinv(L)
+        signatures = _all_signatures(computer, probed)
 
-    C -= np.diag(np.diag(C))
+        profiles[deleted_vertex].extend(
+            signatures[v] for v in probed.nodes()
+        )
 
-    # C = np.abs(C)
+    return {
+        u: _profile(profiles[u])
+        for u in cls
+    }
 
-    C = np.trunc(C*1e6)
 
-    maxes = []
-    for row in C:
-        current_max = -1
-        for i in range(len(row)):
-            if row[i] >= current_max:
-                current_max = row[i]
-        maxes.append(current_max)
+def neighborhood_deletion(graph, computer, cls, p=3, max_distance=None):
+    profiles = {u: [] for u in cls}
+    nodes = list(graph.nodes())
+    N = {v: set(graph.neighbors(v)) for v in nodes}
+    Nc = {v: N[v] | {v} for v in nodes}
 
-    maxes_argmax = []
-    for i in range(C.shape[0]):
-        maxes_argmax.append([])
-        for j in range(C.shape[1]):
-            if C[i][j] == maxes[i]:
-                maxes_argmax[i].append(j)
+    if p < 2 or p > len(nodes):
+        raise ValueError("Invalid p.")
 
-    for u in tqdm(cls):
-        u_idx = items.index(u)
+    if max_distance is not None:
+        allowed = {
+            u: {v for v, d in nx.single_source_shortest_path_length(graph, u, cutoff=max_distance).items()
+                if 1 <= d <= max_distance}
+            for u in nodes
+        }
 
-        nodes = {u}
-        nodes.update(items[j] for j in maxes_argmax[u_idx])
+    for u in tqdm(cls, desc=f"Neighborhood deletion p={p}", unit="vertex", dynamic_ncols=True):
+        others = list(allowed[u]) if max_distance is not None else [v for v in nodes if v != u]
 
-        probed = _fold_correlation(graph, u, nodes)
+        for chosen in combinations(others, p - 1):
+            if max_distance is not None and any(b not in allowed[a] for a, b in combinations(chosen, 2)):
+                continue
 
-        signature = _signature(computer, probed, u)
+            group = (u,) + chosen
+            common = N[u].copy()
+            for v in chosen:
+                common &= N[v]
+                if not common:
+                    break
+            if common:
+                continue
 
-        profiles[u] = signature
+            probed = graph.copy()
+            probed.remove_nodes_from(set().union(*(Nc[v] for v in group)))
+            probed.add_node(u, **graph.nodes[u])
+            probed.add_edges_from((u, v) for v in probed if v != u)
 
-    return profiles
+            profiles[u].append(_signature(computer, probed, u))
+
+    return {u: _profile(sigs) for u, sigs in profiles.items()}
 
 def probe_partition(graph, computer, classes, probe, **kwargs):
     refined = []

@@ -910,7 +910,11 @@ class HeatKernelEquivalenceComputer(VertexEquivalenceInterface):
             if self.bfs_depth is not None:
                 sigs = self._signatures_with_bfs(graphs[k],sigs,)
 
-            classes = self._group_by_equality(sigs)
+
+            classes = defaultdict(list)
+            for item, sig in sigs.items():
+                classes[sig].append(item)
+
             results.append((classes, sigs))
 
         return results[0] if H is None else (*results[0], *results[1])
