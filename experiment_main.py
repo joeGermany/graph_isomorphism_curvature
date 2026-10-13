@@ -23,6 +23,8 @@ START_RESOLUTION = 1e9
 MIN_RESOLUTION = 1
 EPS = 1e-12
 
+PROBE_ORBIT_REP = True
+
 PROBES = [
     ("node_deletion", node_deletion, {"M": 1}),
     ("single_clique", single_clique_addition, {"c": 40}),
@@ -65,7 +67,11 @@ def process_graph(graph_file):
             G0 = read_dimacs_or_simple_graph(graph_file)
             n = G0.number_of_nodes()
             G = subdivide_every_edge(G0, SUBDIVISION_K)
-            orbit_labels = partition_to_labels(get_true_orbits_restricted(G, n), n)
+            true_orbits = get_true_orbits_restricted(G, n)
+            orbit_labels = partition_to_labels(true_orbits, n)
+            orbit_reps = {i: next(iter(cls)) for i, cls in enumerate(true_orbits)}
+            vertex_orbit = {v: i for i, cls in enumerate(true_orbits) for v in cls}
+            representatives = list(orbit_reps.values())
 
             classes = None
             solved = False
@@ -73,10 +79,7 @@ def process_graph(graph_file):
 
             write("\n" + "=" * 80 + f"\nGraph: {graph_file.name}\nOriginal number of vertices: {n}\n" + "=" * 80 + "\n")
 
-            computer = HeatKernelEquivalenceComputer(graph_settings=[{**BASE_SETTING,
-                        "name": "initial", "transformations": [], "operators": ["laplacian"],
-                        "resolutions": [START_RESOLUTION]}], comparison_mode="fixed_resolution",
-                        bfs_depth=1000, use_ids=True, use_stable_ids=False)
+            computer = HeatKernelEquivalenceComputer(graph_settings=[{**BASE_SETTING, "name": "initial", "transformations": [], "operators": ["laplacian"], "resolutions": [START_RESOLUTION]}], comparison_mode="fixed_resolution", bfs_depth=1000, use_ids=True, use_stable_ids=False)
 
             def configure(name, transformations, operators, resolution, bfs_depth=1000, stable_ids=False):
                 computer.graph_settings = [{**BASE_SETTING, "name": name, "transformations": transformations, "operators": operators, "resolutions": np.asarray([resolution], dtype=np.float64)}]
@@ -183,13 +186,40 @@ def process_graph(graph_file):
 
                         def compute_probe(resolution, probe=probe, probe_args=probe_args, probe_name=probe_name):
                             configure(f"{stage_name}-probe-{probe_name}", [], ["laplacian", "correlation"], resolution, bfs_depth=100, stable_ids=True)
-                            profiles = probe(stage_graph, computer, list(stage_graph.nodes()), **probe_args)
 
-                            signatures = {v: tuple(sorted((profiles[u] for u in membership[v]), key=repr)) for v in G.nodes()}
+                            if PROBE_ORBIT_REP:
+                                probe_roots = list({u for rep in representatives for u in membership[rep]})
+                                profiles = probe(stage_graph, computer, probe_roots, **probe_args)
 
-                            groups = {}
-                            for v, sig in signatures.items():
-                                groups.setdefault(sig, []).append(v)
+                                rep_signatures = {
+                                    rep: tuple(sorted((profiles[u] for u in membership[rep]), key=repr))
+                                    for rep in representatives
+                                }
+
+                                signature_groups = {}
+                                orbit_groups = {}
+
+                                for orbit_id, rep in orbit_reps.items():
+                                    sig = rep_signatures[rep]
+                                    if sig not in signature_groups:
+                                        signature_groups[sig] = len(signature_groups)
+                                    orbit_groups[orbit_id] = signature_groups[sig]
+
+                                groups = {}
+                                for v in range(n):
+                                    groups.setdefault(orbit_groups[vertex_orbit[v]], []).append(v)
+
+                            else:
+                                profiles = probe(stage_graph, computer, list(stage_graph.nodes()), **probe_args)
+
+                                signatures = {
+                                    v: tuple(sorted((profiles[u] for u in membership[v]), key=repr))
+                                    for v in range(n)
+                                }
+
+                                groups = {}
+                                for v, sig in signatures.items():
+                                    groups.setdefault(sig, []).append(v)
 
                             return dict(enumerate(groups.values()))
 
