@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import traceback
+import numpy as np
 import networkx as nx
 from sklearn.metrics import normalized_mutual_info_score
 
@@ -9,9 +10,6 @@ from src.utils.graph_utils import *
 from src.probing.probing import *
 
 
-# GRAPH_FILE = Path("graphs/nauty_graphs/pp/pp-9-2")
-# OUTPUT_FILE = Path("results/pp-9-2-L(L(G))-run.txt")
-
 GRAPH_DIR = Path("graphs/nauty_graphs/dimacs/mz-aug")
 OUTPUT_DIR = Path("results/mz-aug")
 
@@ -19,25 +17,22 @@ LINE_ORDER_START = 0
 MAX_LINE_ORDER = 2
 SUBDIVISION_K = 0
 
-OPERATORS = ["laplacian", "correlation","dirac"]
+OPERATORS = ["laplacian", "correlation", "dirac"]
 
-START_RESOLUTION = 1e8
+START_RESOLUTION = 1e9
 MIN_RESOLUTION = 1
 EPS = 1e-12
 
-
 PROBES = [
-    ("neighborhood_deletion", neighborhood_deletion, {"p": 3, "max_distance": 3}),
-    # ("single_clique", single_clique_addition, {"c": 40}),
-    # ("folding", folding, {"p": 2, "M": 1}),
-    # ("node_deletion", node_deletion, {}),
+    ("node_deletion", node_deletion, {"M": 1}),
+    ("single_clique", single_clique_addition, {"c": 40}),
+    ("folding", folding, {"p": 2, "M": 1}),
+    ("neighborhood_deletion", neighborhood_deletion, {"p": 3, "max_distance": 2}),
     # ("edge_addition", edge_addition, {"M": 1}),
     # ("edge_deletion", edge_deletion, {"M": 1}),
     # ("edge_swap", edge_swap, {"M": 1}),
     # ("clique_addition", clique_addition, {"p": 4, "c": 10, "M": 1}),
-
 ]
-
 
 BASE_SETTING = {
     "bfs_sort": True,
@@ -67,23 +62,27 @@ def process_graph(graph_file):
             f.flush()
 
         try:
-
             G0 = read_dimacs_or_simple_graph(graph_file)
             n = G0.number_of_nodes()
             G = subdivide_every_edge(G0, SUBDIVISION_K)
-
             orbit_labels = partition_to_labels(get_true_orbits_restricted(G, n), n)
 
             classes = None
             solved = False
             aborted = False
 
-            write(
-                "\n" + "=" * 80 +
-                f"\nGraph: {graph_file.name}\n"
-                f"Original number of vertices: {n}\n" +
-                "=" * 80 + "\n"
-            )
+            write("\n" + "=" * 80 + f"\nGraph: {graph_file.name}\nOriginal number of vertices: {n}\n" + "=" * 80 + "\n")
+
+            computer = HeatKernelEquivalenceComputer(graph_settings=[{**BASE_SETTING,
+                        "name": "initial", "transformations": [], "operators": ["laplacian"],
+                        "resolutions": [START_RESOLUTION]}], comparison_mode="fixed_resolution",
+                        bfs_depth=1000, use_ids=True, use_stable_ids=False)
+
+            def configure(name, transformations, operators, resolution, bfs_depth=1000, stable_ids=False):
+                computer.graph_settings = [{**BASE_SETTING, "name": name, "transformations": transformations, "operators": operators, "resolutions": np.asarray([resolution], dtype=np.float64)}]
+                computer.bfs_depth = bfs_depth
+                computer.use_ids = True
+                computer.use_stable_ids = stable_ids
 
             def refine(new):
                 nonlocal classes
@@ -103,8 +102,6 @@ def process_graph(graph_file):
 
                 classes = dict(enumerate(refined))
 
-
-
             def evaluate(stage):
                 nonlocal solved
 
@@ -118,9 +115,6 @@ def process_graph(graph_file):
                     write(f"\nSolved at {stage}\n")
 
                 return p
-
-
-            # Retry one experiment at decreasing resolution
 
             def run_with_resolution(stage, compute_partition):
                 nonlocal classes, aborted
@@ -147,9 +141,6 @@ def process_graph(graph_file):
                     resolution /= 10
                     write(f"P=0 at {stage}; retrying with r={resolution:.0e}\n")
 
-
-            # G, L(G), L²(G), ...
-
             for order in range(LINE_ORDER_START, MAX_LINE_ORDER + 1):
 
                 name = "G" if order == 0 else "L(G)" if order == 1 else f"L^{order}(G)"
@@ -164,8 +155,6 @@ def process_graph(graph_file):
 
                 write(f"\n================ {name}, diameter={diameter} ================\n")
 
-                # G, G_2, G_3, ...
-                # L(G), L(G)_2, L(G)_3, ...
                 stages = [(name, line_t)]
                 stages += [(f"{name}_{d}", [("distance", d)] + line_t) for d in range(2, diameter + 1)]
 
@@ -175,27 +164,10 @@ def process_graph(graph_file):
 
                     stage_graph, membership = construct_transformed_graph(G, transforms)
 
-
-
                     for op in OPERATORS:
 
                         def spectral_partition(resolution, op=op):
-                            setting = {
-                                **BASE_SETTING,
-                                "name": f"{stage_name}-{op}",
-                                "transformations": transforms,
-                                "operators": [op],
-                                "resolutions": [resolution],
-                            }
-
-                            computer = HeatKernelEquivalenceComputer(
-                                graph_settings=[setting],
-                                comparison_mode="fixed_resolution",
-                                bfs_depth=1000,
-                                use_ids=True,
-                                use_stable_ids=False,
-                            )
-
+                            configure(f"{stage_name}-{op}", transforms, [op], resolution, bfs_depth=1000, stable_ids=False)
                             new, _ = computer.compute_vertex_signatures(G)
                             return restrict_to_original(new, n)
 
@@ -207,45 +179,13 @@ def process_graph(graph_file):
                     if solved or aborted:
                         break
 
-
-                    # 2. Probing on THIS SAME graph
-
-                    # if stage_name == "G":
-                    #     continue
                     for probe_name, probe, probe_args in PROBES:
 
-                        def probe_partition(resolution, probe=probe, probe_args=probe_args):
+                        def compute_probe(resolution, probe=probe, probe_args=probe_args, probe_name=probe_name):
+                            configure(f"{stage_name}-probe-{probe_name}", [], ["laplacian", "correlation"], resolution, bfs_depth=100, stable_ids=True)
+                            profiles = probe(stage_graph, computer, list(stage_graph.nodes()), **probe_args)
 
-                            setting = {
-                                **BASE_SETTING,
-                                "name": f"{stage_name}-probe-{probe_name}",
-                                "transformations": [],
-                                "operators": ["laplacian", "correlation"],
-                                "resolutions": [resolution],
-                            }
-
-                            computer = HeatKernelEquivalenceComputer(
-                                graph_settings=[setting],
-                                comparison_mode="fixed_resolution",
-                                bfs_depth=100,
-                                use_ids=True,
-                                use_stable_ids=True,
-                            )
-
-                            # Probe the ACTUAL current graph: G, G_2, L(G), L(G)_2, ...
-                            profiles = probe(
-                                stage_graph,
-                                computer,
-                                list(stage_graph.nodes()),
-                                **probe_args
-                            )
-
-                            # Map transformed-graph profiles back to
-                            # the original vertices.
-                            signatures = {
-                                v: tuple(sorted((profiles[u] for u in membership[v]), key=repr))
-                                for v in G.nodes()
-                            }
+                            signatures = {v: tuple(sorted((profiles[u] for u in membership[v]), key=repr)) for v in G.nodes()}
 
                             groups = {}
                             for v, sig in signatures.items():
@@ -253,10 +193,7 @@ def process_graph(graph_file):
 
                             return dict(enumerate(groups.values()))
 
-                        run_with_resolution(
-                            f"{stage_name}-probe-{probe_name}",
-                            probe_partition
-                        )
+                        run_with_resolution(f"{stage_name}-probe-{probe_name}", compute_probe)
 
                         if solved or aborted:
                             break
@@ -267,10 +204,6 @@ def process_graph(graph_file):
                 if solved or aborted:
                     break
 
-            # ----------------------------------------------------------
-            # Final status
-            # ----------------------------------------------------------
-
             if solved:
                 write("\nSTATUS: SOLVED\n")
             elif aborted:
@@ -279,30 +212,22 @@ def process_graph(graph_file):
                 write(f"\nSTATUS: NOT SOLVED up to L^{MAX_LINE_ORDER}(G)\n")
 
         except MemoryError as e:
-            write(
-                f"\nMEMORY ERROR on {graph_file.name}: {e}\n"
-                f"{traceback.format_exc()}\n"
-                "STATUS: SKIPPED — MEMORY ERROR\n"
-            )
+            write(f"\nMEMORY ERROR on {graph_file.name}: {e}\n{traceback.format_exc()}\nSTATUS: SKIPPED — MEMORY ERROR\n")
 
 
 def main():
-    files = sorted(
-        (p for p in GRAPH_DIR.rglob("*") if p.is_file()),
-        key=lambda p: [int(x) if x.isdigit() else x.lower()
-                       for x in re.split(r"(\d+)", str(p.relative_to(GRAPH_DIR)))]
-    )
+    files = sorted((p for p in GRAPH_DIR.rglob("*") if p.is_file()), key=lambda p: [int(x) if x.isdigit() else x.lower() for x in re.split(r"(\d+)", str(p.relative_to(GRAPH_DIR)))])
 
     print(f"Found {len(files)} graphs in {GRAPH_DIR}")
 
     for i, graph_file in enumerate(files, 1):
         print(f"\n[{i}/{len(files)}] Processing {graph_file.name}")
+
         try:
             process_graph(graph_file)
         except Exception:
             print(f"ERROR processing {graph_file.name}")
             traceback.print_exc()
-
 
 
 if __name__ == "__main__":
