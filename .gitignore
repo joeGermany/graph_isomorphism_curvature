@@ -19,6 +19,9 @@ main-pp-9-3.py
 McKayLatinGraphs.py
 output.txt
 precision_experiment_main.py
+k_wl_main.py
+single_clique_experiment.py
+single_graph_probing_experiment.py
 
 .DS_Store
 **/.DS_Store
