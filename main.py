@@ -9,7 +9,8 @@ from src.probing.probing import *
 
 
 def main():
-    graph_file=Path("graphs/nauty_graphs/pp/pp-9-2")
+    graph_file=Path("graphs/nauty_graphs/sts/sts-13")
+    # graph_file=Path("graphs/nauty_graphs/pp/pp-9-2")
     # graph_file=Path("graphs/nauty_graphs/had/had-52")
 
     # signature_mode:
@@ -70,8 +71,24 @@ def main():
             "precision_dps": None
         },
         # {
-        #     "name": "L(G)",
-        #     "transformations": [("line", 1)],
+        #     "name": "G2",
+        #     "transformations": [("distance", 2)],
+        #     "operators": ["laplacian"],
+        #     "bfs_sort": True,
+        #     "signature_mode": "full_matrix",
+        #     "time_step": 0.1,
+        #     "end_time_multiplier": 25,
+        #     "fit_order": 6,
+        #     "fit_start": 1,
+        #     "fit_end": 6,
+        #     "resolutions": [1e6],
+        #     "dirac_decimals": 6,
+        #     "dirac_mass": 1.0,
+        #     "precision_dps": None
+        # },
+        # {
+        #     "name": "G3",
+        #     "transformations": [("distance", 3)],
         #     "operators": ["laplacian"],
         #     "bfs_sort": True,
         #     "signature_mode": "full_matrix",
@@ -86,7 +103,7 @@ def main():
         # },
         # {
         #     "name": "L(G2)",
-        #     "transformations": [("distance",2), ("line", 1)],
+        #     "transformations": [("line", 1), ("distance",2)],
         #     "operators": ["laplacian"],
         #     "bfs_sort": True,
         #     "signature_mode": "full_matrix",
