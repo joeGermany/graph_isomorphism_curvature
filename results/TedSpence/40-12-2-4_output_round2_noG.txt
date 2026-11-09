@@ -1,8 +1,0 @@
-Graph1: NMI (with L(L(G))): 1.0000
-Graph3: NMI (with L(L(G))): 1.0000
-Graph5: NMI (with L(L(G))): 1.0000
-Graph12: NMI (with L(L(G))): 1.0000
-Graph13: NMI (with L(L(G))): 1.0000
-Graph15: NMI (with L(L(G))): 1.0000
-Graph17: NMI (with L(L(G))): 1.0000
-Graph21: NMI (with L(L(G))): 1.0000

@@ -27,7 +27,21 @@ def _profile(signatures):
     """A probing profile is just the sorted multiset of obtained signatures."""
     return tuple(sorted(signatures, key=repr))
 
+def _universalize_u(graph, u):
+    nodes = list(graph.nodes())
 
+    for n in nodes:
+        graph.add_edge(u, n)
+
+def universalize(graph, computer, cls):
+    profiles = {}
+
+    for u in tqdm(cls, desc="Universalize", unit="vertex", dynamic_ncols=True):
+        probed = graph.copy()
+        _universalize_u(probed, u)
+        profiles[u] = _signature(computer, probed, u)
+
+    return profiles
 
 def edge_addition(graph, computer, cls, M=1):
     profiles = {u: [] for u in cls}

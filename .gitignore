@@ -2,6 +2,23 @@ unified_vertex_signatures_asOf11.8.2026/
 k_wl/run_wl
 kwl_output/
 lib/
+results/
+earlyCode/
+kkk.py
+latin_graphs.py
+main_15Aug_failingGraphs_sts.py
+main_15Aug_failingGraphs.py
+main_15Aug_FastRun_onlyClasses_latinGraphs.py
+main_15Aug_FastRun_sts.py
+main_15Aug_FastRun_with_dirac.py
+main_15Aug_FastRun.py
+main_JoeExperiments_15Aug_withG2.py
+main_JoeExperiments_15Aug.py
+main_with_dirac.py
+main-pp-9-3.py
+McKayLatinGraphs.py
+output.txt
+precision_experiment_main.py
 
 .DS_Store
 **/.DS_Store
