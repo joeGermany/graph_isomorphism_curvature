@@ -5,6 +5,60 @@ import pynauty
 import random
 import numpy as np
 from src.utils.memory_capacity import guard_remaining_memory
+import json
+from pathlib import Path
+
+
+def load_traces_generators(graph_file, n, orbit_root=Path("results/traces_orbits")):
+    graph_file = Path(graph_file)
+    path = Path(orbit_root) / graph_file.parent.name / f"{graph_file.name}.json"
+
+    if not path.is_file():
+        raise FileNotFoundError(f"Traces file not found: {path}")
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+
+    if data.get("graph") != graph_file.name or data.get("n") != n:
+        raise ValueError(f"Graph mismatch in {path}")
+
+    if data.get("initial_coloring", "uncolored") != "uncolored":
+        raise ValueError(f"Expected uncolored graph generators: {path}")
+
+    if "generators" not in data:
+        raise ValueError(f"No generators in {path}. Run Traces with --generators.")
+
+    generators = data["generators"]
+    if not isinstance(generators, list):
+        raise ValueError(f"Invalid generators in {path}")
+
+    expected = set(range(n))
+
+    for i, g in enumerate(generators):
+        if not isinstance(g, list) or len(g) != n or \
+           any(type(v) is not int for v in g) or set(g) != expected:
+            raise ValueError(f"Invalid generator {i} in {path}")
+
+    return generators
+
+def load_traces_orbits(graph_file, n, orbit_root=Path("results/traces_orbits")):
+    graph_file = Path(graph_file)
+    path = orbit_root / graph_file.parent.name / f"{graph_file.name}.json"
+
+    if not path.is_file():
+        raise FileNotFoundError(f"Traces orbits not found: {path}")
+
+    data = json.loads(path.read_text())
+
+    if data.get("graph") != graph_file.name or data.get("n") != n:
+        raise ValueError(f"Graph mismatch in {path}")
+
+    orbits = data["orbits"]
+    vertices = [v for orbit in orbits for v in orbit]
+
+    if len(vertices) != n or set(vertices) != set(range(n)):
+        raise ValueError(f"Invalid orbit partition in {path}")
+
+    return orbits
 
 def construct_distance_graph(G,distance):
     nodes=list(G.nodes())
@@ -126,12 +180,14 @@ def equivalence_classes_split_orbits(G_classes,true_orbits):
 
     return False
 
-def compute_overall_same_orbit_probability(G,G_classes,original_n):
+def compute_overall_same_orbit_probability(G,G_classes,original_n, true_orbits=None):
     """
     Compute the overall probability that random individualization selects
     corresponding vertices from the same true orbit.
     """
-    true_orbits=get_true_orbits_restricted(G,original_n)
+
+    if true_orbits is None:
+        true_orbits = get_true_orbits_restricted(G, original_n)
 
     if equivalence_classes_split_orbits(G_classes,true_orbits):
         return 0.0
