@@ -1,7 +1,9 @@
 from itertools import combinations, permutations, product
 import networkx as nx
 from tqdm.auto import tqdm
-
+from collections import Counter, defaultdict
+import pynauty
+from threadpoolctl import threadpool_limits
 def _all_signatures(computer, graph):
     old_use_ids = computer.use_ids
     old_use_stable_ids = computer.use_stable_ids
@@ -27,21 +29,7 @@ def _profile(signatures):
     """A probing profile is just the sorted multiset of obtained signatures."""
     return tuple(sorted(signatures, key=repr))
 
-def _universalize_u(graph, u):
-    nodes = list(graph.nodes())
 
-    for n in nodes:
-        graph.add_edge(u, n)
-
-def universalize(graph, computer, cls):
-    profiles = {}
-
-    for u in tqdm(cls, desc="Universalize", unit="vertex", dynamic_ncols=True):
-        probed = graph.copy()
-        _universalize_u(probed, u)
-        profiles[u] = _signature(computer, probed, u)
-
-    return profiles
 
 def edge_addition(graph, computer, cls, M=1):
     profiles = {u: [] for u in cls}
@@ -365,7 +353,7 @@ def node_deletion(graph, computer, cls, M=1):
     }
 
 
-def neighborhood_deletion(graph, computer, cls, p=3, max_distance=None):
+def neighborhood_deletion(graph, computer, cls, p=3, max_distance=None, distance_mode="upto"):
     profiles = {u: [] for u in cls}
     nodes = list(graph.nodes())
     N = {v: set(graph.neighbors(v)) for v in nodes}
@@ -375,25 +363,30 @@ def neighborhood_deletion(graph, computer, cls, p=3, max_distance=None):
         raise ValueError("Invalid p.")
 
     if max_distance is not None:
-        allowed = {
-            u: {v for v, d in nx.single_source_shortest_path_length(graph, u, cutoff=max_distance).items()
-                if 1 <= d <= max_distance}
-            for u in nodes
-        }
+        allowed = {}
+        for u in nodes:
+            distances = nx.single_source_shortest_path_length(graph, u, cutoff=max_distance)
+            if distance_mode == "equal":
+                allowed[u] = {v for v, d in distances.items() if d == max_distance}
+            else:
+                allowed[u] = {v for v, d in distances.items() if 1 <= d <= max_distance}
 
     for u in tqdm(cls, desc=f"Neighborhood deletion p={p}", unit="vertex", dynamic_ncols=True):
         others = list(allowed[u]) if max_distance is not None else [v for v in nodes if v != u]
 
         for chosen in combinations(others, p - 1):
+
             if max_distance is not None and any(b not in allowed[a] for a, b in combinations(chosen, 2)):
                 continue
 
             group = (u,) + chosen
+
             common = N[u].copy()
             for v in chosen:
                 common &= N[v]
                 if not common:
                     break
+
             if common:
                 continue
 
@@ -405,6 +398,102 @@ def neighborhood_deletion(graph, computer, cls, p=3, max_distance=None):
             profiles[u].append(_signature(computer, probed, u))
 
     return {u: _profile(sigs) for u, sigs in profiles.items()}
+
+
+
+#
+# def neighborhood_deletion(graph, computer, cls, p=3, max_distance=None,
+#                           distance_mode="upto", generators=None):
+#     if generators is None:
+#         raise ValueError("Traces generators must be provided.")
+#
+#     n = len(graph)
+#     nodes = list(range(n))
+#     cls = list(dict.fromkeys(cls))
+#     selected = set(cls)
+#
+#     if set(graph.nodes()) != set(nodes):
+#         raise ValueError("Expected vertices numbered 0 to n-1.")
+#     if not 2 <= p <= n:
+#         raise ValueError("Invalid p.")
+#     if graph.is_directed() or graph.is_multigraph():
+#         raise ValueError("Requires a simple undirected graph.")
+#     if any(graph.nodes[v] != graph.nodes[0] for v in nodes):
+#         raise ValueError("Uncolored generators require identical vertex attributes.")
+#
+#     neighbors = {v: set(graph.neighbors(v)) for v in nodes}
+#     closed = {v: neighbors[v] | {v} for v in nodes}
+#
+#     # Validate generator numbering and graph compatibility.
+#     for g in generators:
+#         if len(g) != n or set(g) != set(nodes):
+#             raise ValueError("Invalid Traces generator.")
+#         if any(not graph.has_edge(g[u], g[v]) for u, v in graph.edges()):
+#             raise ValueError("Traces generators do not match this graph labeling.")
+#
+#     if max_distance is not None:
+#         allowed = {}
+#         for u in nodes:
+#             distances = nx.single_source_shortest_path_length(
+#                 graph, u, cutoff=max_distance
+#             )
+#             if distance_mode == "equal":
+#                 allowed[u] = {v for v, d in distances.items() if d == max_distance}
+#             else:
+#                 allowed[u] = {v for v, d in distances.items() if 1 <= d <= max_distance}
+#
+#     seen = set()
+#     profiles = {u: [] for u in cls}
+#
+#     with threadpool_limits(limits=1):
+#         for root in tqdm(cls, desc=f"Neighborhood deletion p={p}",
+#                          unit="vertex", dynamic_ncols=True):
+#
+#             others = sorted(allowed[root]) if max_distance is not None else [
+#                 v for v in nodes if v != root
+#             ]
+#
+#             for chosen in combinations(others, p - 1):
+#                 triple = tuple(sorted((root, *chosen)))
+#
+#                 if triple in seen:
+#                     continue
+#
+#                 if max_distance is not None and any(
+#                     b not in allowed[a] for a, b in combinations(triple, 2)
+#                 ):
+#                     continue
+#
+#                 # Compute the orbit of this triple using saved Traces generators.
+#                 orbit = [triple]
+#                 seen.add(triple)
+#
+#                 for current in orbit:
+#                     for g in generators:
+#                         image = tuple(sorted(g[v] for v in current))
+#                         if image not in seen:
+#                             seen.add(image)
+#                             orbit.append(image)
+#
+#                 # Construct one probe for this triple orbit.
+#                 probed = graph.copy()
+#                 probed.remove_nodes_from(
+#                     set().union(*(closed[v] for v in triple))
+#                 )
+#                 probed.add_node(root, **graph.nodes[root])
+#                 probed.add_edges_from((root, v) for v in probed if v != root)
+#
+#                 sig = _signature(computer, probed, root)
+#
+#                 # Distribute the signature to every selected vertex in the orbit.
+#                 weights = Counter(
+#                     v for current in orbit for v in current if v in selected
+#                 )
+#
+#                 for v, weight in weights.items():
+#                     profiles[v].extend([sig] * weight)
+#
+#     return {u: _profile(sigs) for u, sigs in profiles.items()}
 
 def probe_partition(graph, computer, classes, probe, **kwargs):
     refined = []
