@@ -1,0 +1,8 @@
+TRACES_GENERATORS_BEGINGen(A) #1:  1 0 2 4 6 3 5 7 11 10 8 9 13 12
+Gen(A) #2:  5 6 0 2 4 3 1 9 13 10 12 11 7 8
+Gen(A) #3:  7 9 8 11 10 12 13 0 1 2 6 5 4 3
+1 orbit; grpsize=336; 3 gens; 15 nodes (2 peak); maxlev=3
+cpu time = 0.00 seconds
+TRACES_GENERATORS_ENDTRACES_ORBITS_BEGIN 0:13 (14);
+TRACES_ORBITS_END
+STDERR:

@@ -1,0 +1,41 @@
+{
+  "graph": "CHH_cc(1-1)_22-2",
+  "family": "chh",
+  "n": 22,
+  "orbit_count": 4,
+  "orbits": [
+    [
+      0,
+      4,
+      5,
+      12,
+      13,
+      21
+    ],
+    [
+      1,
+      8,
+      9
+    ],
+    [
+      2,
+      3,
+      6,
+      7,
+      10,
+      11,
+      14,
+      15,
+      17,
+      18,
+      19,
+      20
+    ],
+    [
+      16
+    ]
+  ],
+  "seconds": 0.025,
+  "algorithm": "Traces",
+  "initial_coloring": "uncolored"
+}

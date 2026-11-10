@@ -1,0 +1,18 @@
+{
+  "graph": "pp-2-1",
+  "family": "pp",
+  "n": 14,
+  "orbit_count": 1,
+  "orbits": [
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+  ],
+  "seconds": 0.045,
+  "algorithm": "Traces",
+  "initial_coloring": "uncolored",
+  "generators": [
+    [1, 0, 2, 4, 6, 3, 5, 7, 11, 10, 8, 9, 13, 12],
+    [5, 6, 0, 2, 4, 3, 1, 9, 13, 10, 12, 11, 7, 8],
+    [7, 9, 8, 11, 10, 12, 13, 0, 1, 2, 6, 5, 4, 3]
+  ],
+  "generator_count": 3
+}

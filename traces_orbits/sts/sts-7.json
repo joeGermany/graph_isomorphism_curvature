@@ -1,0 +1,21 @@
+{
+  "graph": "sts-7",
+  "family": "sts",
+  "n": 7,
+  "orbit_count": 1,
+  "orbits": [
+    [0, 1, 2, 3, 4, 5, 6]
+  ],
+  "seconds": 0.263,
+  "algorithm": "Traces",
+  "initial_coloring": "uncolored",
+  "generator_count": 6,
+  "generators": [
+    [3, 0, 1, 5, 6, 4, 2],
+    [0, 5, 1, 2, 4, 3, 6],
+    [0, 5, 3, 2, 1, 4, 6],
+    [0, 5, 6, 4, 3, 2, 1],
+    [0, 1, 2, 3, 6, 4, 5],
+    [0, 1, 2, 3, 6, 5, 4]
+  ]
+}

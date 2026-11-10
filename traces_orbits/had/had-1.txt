@@ -1,0 +1,2 @@
+had-1: n=4, 1 orbits, time=0.11s
+0 1 2 3

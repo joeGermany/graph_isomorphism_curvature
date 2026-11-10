@@ -1,0 +1,6 @@
+8 orbits; grpsize=144; 5 gens; 13 nodes (1 interrupted, 5 peak); maxlev=2
+cpu time = 0.00 seconds
+TRACES_ORBITS_BEGIN 0 4 5 12 13 21 (6); 1 8 9 (3); 2 3 6 7 10 11 14 15 17:20 (12); 16; 22 28 29
+    32 33 43 (6); 23 30 31 (3); 24:27 34:37 39:42 (12); 38;
+TRACES_ORBITS_END
+STDERR:

@@ -1,0 +1,6 @@
+13 orbits; grpsize=3; 1 gen; 39 nodes (20 interrupted, 16 peak); maxlev=2
+cpu time = 0.00 seconds
+TRACES_ORBITS_BEGIN 0 8 26 (3); 1 2 18 (3); 3 10 27 (3); 4; 5 6 23 (3); 7 11 15 (3); 9 12 28
+    (3); 13 20 24 (3); 14 17 21 (3); 16; 19; 22; 25;
+TRACES_ORBITS_END
+STDERR:

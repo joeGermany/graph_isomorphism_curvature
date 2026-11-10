@@ -1,0 +1,17 @@
+{
+  "graph": "had-1",
+  "family": "had",
+  "n": 4,
+  "orbit_count": 1,
+  "orbits": [
+    [0, 1, 2, 3]
+  ],
+  "seconds": 0.112,
+  "algorithm": "Traces",
+  "initial_coloring": "uncolored",
+  "generator_count": 2,
+  "generators": [
+    [2, 0, 3, 1],
+    [1, 0, 3, 2]
+  ]
+}

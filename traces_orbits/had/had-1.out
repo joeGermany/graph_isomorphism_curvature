@@ -1,0 +1,7 @@
+TRACES_GENERATORS_BEGINGen #1:  2 0 3 1
+Gen #2:  1 0 3 2
+1 orbit; grpsize=8; 2 gens; 1 node (1 peak); maxlev=0
+cpu time = 0.01 seconds
+TRACES_GENERATORS_ENDTRACES_ORBITS_BEGIN 0:3 (4);
+TRACES_ORBITS_END
+STDERR:
