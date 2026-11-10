@@ -1,17 +1,12 @@
 from pathlib import Path
 from sklearn.metrics import normalized_mutual_info_score
-
-from src.k_wl.kwl import run_kwl
 from src.module.heat_kernel_equivalence_compute import HeatKernelEquivalenceComputer
-
 from src.utils.graph_utils import *
 from src.probing.probing import *
 
 
 def main():
-    graph_file=Path("graphs/nauty_graphs/sts/sts-13")
-    # graph_file=Path("graphs/nauty_graphs/pp/pp-9-2")
-    # graph_file=Path("graphs/nauty_graphs/had/had-52")
+    graph_file=Path("graphs/nauty_graphs/pp/pp-9-2")
 
     # signature_mode:
     #   "coefficients" -> fitted coefficients; set fit_order/fit_start/fit_end
@@ -71,24 +66,8 @@ def main():
             "precision_dps": None
         },
         # {
-        #     "name": "G2",
-        #     "transformations": [("distance", 2)],
-        #     "operators": ["laplacian"],
-        #     "bfs_sort": True,
-        #     "signature_mode": "full_matrix",
-        #     "time_step": 0.1,
-        #     "end_time_multiplier": 25,
-        #     "fit_order": 6,
-        #     "fit_start": 1,
-        #     "fit_end": 6,
-        #     "resolutions": [1e6],
-        #     "dirac_decimals": 6,
-        #     "dirac_mass": 1.0,
-        #     "precision_dps": None
-        # },
-        # {
-        #     "name": "G3",
-        #     "transformations": [("distance", 3)],
+        #     "name": "L(G)",
+        #     "transformations": [("line", 1)],
         #     "operators": ["laplacian"],
         #     "bfs_sort": True,
         #     "signature_mode": "full_matrix",
@@ -103,7 +82,7 @@ def main():
         # },
         # {
         #     "name": "L(G2)",
-        #     "transformations": [("line", 1), ("distance",2)],
+        #     "transformations": [("distance",2), ("line", 1)],
         #     "operators": ["laplacian"],
         #     "bfs_sort": True,
         #     "signature_mode": "full_matrix",
@@ -142,11 +121,8 @@ def main():
     class_labels=partition_to_labels(classes,original_n)
     orbit_labels=partition_to_labels(true_orbits,original_n)
 
-    # for i in range(len(orbit_labels)):
-    #     print(i, class_labels[i])
-
-    print("classes: ", class_labels)
-    print("orbits: ", orbit_labels)
+    # print("classes: ", class_labels)
+    # print("orbits: ", orbit_labels)
 
     nmi=normalized_mutual_info_score(class_labels,orbit_labels)
     probability=compute_overall_same_orbit_probability(graph,classes,original_n)
@@ -157,7 +133,7 @@ def main():
     # -----------------------
     # Probing
     # -----------------------
-    # probing_classes = probe_partition(graph, equivalence_computer, classes, neighborhood_deletion, p=3, max_distance=None)
+    # probing_classes = probe_partition(graph, equivalence_computer, classes, neighborhood_deletion, p=3, max_distance=2, distance_mode = "equal")
     # probing_classes = probe_partition(graph, equivalence_computer, classes, node_deletion, M=1)
     # probing_classes = probe_partition(graph, equivalence_computer, classes, single_clique_addition, c=40)
     # probing_classes = probe_partition(graph, equivalence_computer, classes, folding, p=2, M=1)
@@ -172,49 +148,6 @@ def main():
     print("Probing classes: ", probing_class_labels)
     print(f"NMI After Probing: {probing_nmi:.4f}")
     print(f"Same-orbit probability After Probing: {probing_probability:.4f}")
-
-    # k-WL uses an external executable named `run_wl`.
-    # Before running the experiment, compile it once with:
-    #
-    #   cd src/k_wl
-    #
-    # Linux / Windows with g++:
-    #   g++ -std=c++17 -O3 main.cpp weisfeiler_lehman.cpp -o run_wl
-    #
-    # macOS:
-    #   clang++ -std=c++17 -O3 main.cpp weisfeiler_lehman.cpp -o run_wl
-
-    k_wl_parameter=1
-
-    unit_kwl_classes=run_kwl(graph,k_wl_parameter,output_dir="kwl_output/unit_coloring",)
-
-    heat_kwl_classes=run_kwl(graph,k_wl_parameter,initial_partition=probing_classes,output_dir="kwl_output/heat_colored",)
-
-    unit_kwl_labels=partition_to_labels(unit_kwl_classes,original_n)
-    heat_kwl_labels=partition_to_labels(heat_kwl_classes,original_n)
-
-    unit_kwl_nmi=normalized_mutual_info_score(orbit_labels,unit_kwl_labels)
-    heat_kwl_nmi=normalized_mutual_info_score(orbit_labels,heat_kwl_labels)
-
-    true_orbit_set={tuple(sorted(orbit)) for orbit in true_orbits}
-
-    unit_matches=sum(tuple(sorted(cls)) in true_orbit_set for cls in unit_kwl_classes)
-
-    heat_matches=sum(tuple(sorted(cls)) in true_orbit_set for cls in heat_kwl_classes)
-
-    print(
-        f"{k_wl_parameter}-WL unit_coloring: "
-        f"NMI = {unit_kwl_nmi:.4f}, "
-        f"classes = {len(unit_kwl_classes)}, "
-        f"matching classes = {unit_matches}"
-    )
-
-    print(
-        f"{k_wl_parameter}-WL heat_colored: "
-        f"NMI = {heat_kwl_nmi:.4f}, "
-        f"classes = {len(heat_kwl_classes)}, "
-        f"matching classes = {heat_matches}"
-    )
 
 
 if __name__=="__main__":
